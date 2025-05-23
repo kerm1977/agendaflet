@@ -331,6 +331,8 @@ def add_cotizacion_db(cotizacion_data):
         return True, "Cotización guardada exitosamente."
     except Exception as e:
         print(f"ERROR: Error al guardar cotización: {e}")
+        import traceback
+        traceback.print_exc() # Esto imprimirá el rastro completo del error
         return False, f"Error al guardar cotización: {e}"
     finally:
         conn.close()
@@ -527,28 +529,43 @@ def main(page: ft.Page):
     )
 
     def save_cotizacion(e):
-        if not all([cotizacion_quien_hace_dropdown.value, cotizacion_dirigido_a_input.value,
-                    cotizacion_actividad_dropdown.value, cotizacion_nombre_item_input.value,
-                    cotizacion_fecha_actividad_input.value, cotizacion_cantidad_input.value,
-                    cotizacion_precio_input.value]):
+        print("DEBUG: Iniciando save_cotizacion...")
+        
+        # Lista de campos requeridos para la cotización
+        required_fields = {
+            "Quien hace cotización": cotizacion_quien_hace_dropdown.value,
+            "Dirigido al NOMBRE DE USUARIO": cotizacion_dirigido_a_input.value,
+            "ACTIVIDAD": cotizacion_actividad_dropdown.value,
+            "Nombre de la Caminata, Producto o Servicio": cotizacion_nombre_item_input.value,
+            "Fecha de la actividad": cotizacion_fecha_actividad_input.value,
+            "Cantidad de Personas": cotizacion_cantidad_input.value,
+            "Precio del al Caminata, Producto, Servicio": cotizacion_precio_input.value,
+        }
+
+        missing_fields = [label for label, value in required_fields.items() if not value]
+
+        if missing_fields:
+            error_message = "Por favor, completa los siguientes campos obligatorios: " + ", ".join(missing_fields) + "."
             page.snack_bar = ft.SnackBar(
-                ft.Text("Por favor, completa todos los campos obligatorios para la cotización.", color=ft.Colors.WHITE),
+                ft.Text(error_message, color=ft.Colors.WHITE),
                 bgcolor=ft.Colors.RED_600,
                 open=True
             )
             page.update()
+            print(f"DEBUG: Campos obligatorios incompletos: {missing_fields}")
             return
 
         try:
             cantidad = int(cotizacion_cantidad_input.value)
             precio = float(cotizacion_precio_input.value)
-        except ValueError:
+        except ValueError as ve:
             page.snack_bar = ft.SnackBar(
-                ft.Text("Cantidad y Precio deben ser números válidos.", color=ft.Colors.WHITE),
+                ft.Text(f"Cantidad y Precio deben ser números válidos. Error: {ve}", color=ft.Colors.WHITE),
                 bgcolor=ft.Colors.RED_600,
                 open=True
             )
             page.update()
+            print(f"ERROR: Error de conversión de tipo: {ve}")
             return
 
         cotizacion_data = {
@@ -563,6 +580,7 @@ def main(page: ft.Page):
             'sinpe': cotizacion_sinpe_dropdown.value if cotizacion_sinpe_dropdown.value else '',
             'nota': cotizacion_nota_input.value.strip()
         }
+        print(f"DEBUG: Datos de cotización a guardar: {cotizacion_data}")
 
         success, message = add_cotizacion_db(cotizacion_data)
 
@@ -586,6 +604,7 @@ def main(page: ft.Page):
             cotizacion_nota_input.value = ''
             page.update()
             page.go("/quotations_list") # Navegar a la lista de cotizaciones después de guardar
+        print("DEBUG: Finalizando save_cotizacion.")
 
     def home_view():
         app_bar_actions = []
@@ -1158,7 +1177,7 @@ def main(page: ft.Page):
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    scroll=ft.ScrollMode.ADAPTIVE, # Corregido de ADAPTive a ADAPTIVE
+                    scroll=ft.ScrollMode.ADAPTIVE, 
                     expand=True,
                     spacing=10
                 )
