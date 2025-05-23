@@ -2,15 +2,13 @@ import flet as ft
 import sqlite3
 import hashlib
 import re
-import time # Importar time para usar sleep si es necesario para el SnackBar
+import time 
 
 DATABASE_NAME = "users.db"
-LOGGED_IN_USER = None # Variable global para simular el usuario logueado
+LOGGED_IN_USER = None 
 
-# --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
-# Definición de las listas de opciones para los Dropdowns
 ACTIVIDADES_CHOICES = [
-    ft.dropdown.Option(''), # Opción vacía por defecto
+    ft.dropdown.Option(''), 
     ft.dropdown.Option('La Tribu'),
     ft.dropdown.Option('Senderista'),
     ft.dropdown.Option('Enfermería'),
@@ -41,7 +39,7 @@ ACTIVIDADES_CHOICES = [
 ]
 
 CAPACIDAD_PERSONA_CHOICES = [
-    ft.dropdown.Option(''), # Opción vacía por defecto
+    ft.dropdown.Option(''), 
     ft.dropdown.Option('Rápido'),
     ft.dropdown.Option('Intermedio'),
     ft.dropdown.Option('Básico'),
@@ -49,7 +47,7 @@ CAPACIDAD_PERSONA_CHOICES = [
 ]
 
 PARTICIPACION_CHOICES = [
-    ft.dropdown.Option(''), # Opción vacía por defecto
+    ft.dropdown.Option(''), 
     ft.dropdown.Option('Solo de La Tribu'),
     ft.dropdown.Option('constante'),
     ft.dropdown.Option('inconstante'),
@@ -58,8 +56,6 @@ PARTICIPACION_CHOICES = [
     ft.dropdown.Option('Paseo | Recreativo'),
     ft.dropdown.Option('Revisar/Eliminar')
 ]
-# --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
-
 
 def init_db():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -76,7 +72,6 @@ def init_db():
             password_hash TEXT NOT NULL
         )
     ''')
-    # --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS contactos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +90,6 @@ def init_db():
             participacion TEXT
         )
     ''')
-    # --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
     conn.commit()
     conn.close()
 
@@ -127,14 +121,12 @@ def authenticate_user_db(identifier, password_hash):
     user = cursor.fetchone()
     conn.close()
     if user:
-        return True, user[0] # Retorna True y el nombre de usuario (el campo 'usuario')
+        return True, user[0] 
     return False, None
 
 def is_valid_email(email):
-    # Regex básica para validar email
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-# --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
 def add_contact_db(contact_data):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
@@ -169,8 +161,6 @@ def add_contact_db(contact_data):
 def get_all_contacts_db():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
-    # Asegúrate de seleccionar todas las columnas en el orden correcto
-    # (id, nombre, primer_apellido, segundo_apellido, telefono, movil, email, direccion, actividad, nota, empresa, sitio_web, capacidad_persona, participacion)
     cursor.execute("SELECT * FROM contactos ORDER BY nombre, primer_apellido")
     contacts = cursor.fetchall()
     conn.close()
@@ -184,25 +174,24 @@ def get_contact_by_id_db(contact_id):
     conn.close()
     return contact
 
-# --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB (AÑADIDOS PRINTS DE DEPURACIÓN) ---
 def delete_contact_db(contact_id):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
-    print(f"DEBUG: Intentando eliminar contacto con ID: {contact_id}") # DEBUG
+    print(f"DEBUG: Intentando eliminar contacto con ID: {contact_id}") 
     try:
         cursor.execute("DELETE FROM contactos WHERE id = ?", (contact_id,))
         conn.commit()
-        print(f"DEBUG: Commit realizado para ID: {contact_id}. Filas afectadas: {cursor.rowcount}") # DEBUG: Verifica si se eliminó alguna fila
+        print(f"DEBUG: Commit realizado para ID: {contact_id}. Filas afectadas: {cursor.rowcount}") 
         if cursor.rowcount > 0:
             return True, "Contacto eliminado exitosamente."
         else:
-            return False, "Contacto no encontrado para eliminar." # En caso de que el ID no exista
+            return False, "Contacto no encontrado para eliminar." 
     except Exception as e:
-        print(f"ERROR: Error al eliminar contacto con ID {contact_id}: {e}") # DEBUG
+        print(f"ERROR: Error al eliminar contacto con ID {contact_id}: {e}") 
         return False, f"Error al eliminar contacto: {e}"
     finally:
         conn.close()
-        print(f"DEBUG: Conexión a la DB cerrada.") # DEBUG
+        print(f"DEBUG: Conexión a la DB cerrada.") 
 
 def update_contact_db(contact_id, contact_data):
     conn = sqlite3.connect(DATABASE_NAME)
@@ -236,30 +225,25 @@ def update_contact_db(contact_id, contact_data):
         return False, f"Error al actualizar contacto: {e}"
     finally:
         conn.close()
-# --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB ---
-# --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
-
 
 def main(page: ft.Page):
     page.title = "App de Autenticación Flet"
-    page.window_width = 400 # Ancho para simular móvil
+    page.window_width = 400 
     page.window_height = 700
 
     init_db()
 
-    # --- Diálogo de confirmación global ---
-    # Lo definimos aquí para que Flet lo "conozca" desde el inicio del main
     confirm_dialog_global = ft.AlertDialog(
         modal=True,
         title=ft.Text("Confirmar Eliminación"),
-        content=ft.Text(""), # El contenido se actualizará dinámicamente
+        content=ft.Text(""), 
         actions=[
-            ft.TextButton("Sí, Eliminar", style=ft.ButtonStyle(color=ft.Colors.RED_500)), # on_click se asignará dinámicamente
-            ft.TextButton("Cancelar"), # on_click se asignará dinámicamente
+            ft.TextButton("Sí, Eliminar", style=ft.ButtonStyle(color=ft.Colors.RED_500)), 
+            ft.TextButton("Cancelar"), 
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
-    page.overlay.append(confirm_dialog_global) # Añadirlo al overlay de la página
+    page.overlay.append(confirm_dialog_global) 
 
     def logout_user(e):
         global LOGGED_IN_USER
@@ -269,27 +253,22 @@ def main(page: ft.Page):
         login_message_text.value = "Sesión cerrada."
         login_message_text.color = ft.Colors.BLACK54
         page.update()
-        page.go("/login") # Redirigir al login después de cerrar sesión
+        page.go("/login") 
 
-    # Componente del Footer (creado una vez para reutilizarlo)
     footer_text_widget = ft.Container(
         content=ft.Row(
             [
                 ft.Text("HECHO CON", color=ft.Colors.ORANGE_700, size=12, weight=ft.FontWeight.BOLD),
-                ft.Icon(name=ft.Icons.FAVORITE, color=ft.Colors.ORANGE_700, size=12), # Corazón
+                ft.Icon(name=ft.Icons.FAVORITE, color=ft.Colors.ORANGE_700, size=12), 
                 ft.Text("LA TRIBU DE LOS LIBRES", color=ft.Colors.ORANGE_700, size=12, weight=ft.FontWeight.BOLD),
             ],
-            alignment=ft.MainAxisAlignment.CENTER, # Centrar el contenido del Row
-            spacing=3, # Espacio entre los elementos
+            alignment=ft.MainAxisAlignment.CENTER, 
+            spacing=3, 
         ),
-        alignment=ft.alignment.bottom_center, # Alinear el contenedor al fondo y al centro
-        padding=ft.padding.only(bottom=10), # Pequeño padding desde el borde inferior
+        alignment=ft.alignment.bottom_center, 
+        padding=ft.padding.only(bottom=10), 
     )
 
-
-    # --- Vistas ---
-
-    # 1. Home View
     def home_view():
         app_bar_actions = []
         if LOGGED_IN_USER:
@@ -303,17 +282,15 @@ def main(page: ft.Page):
                     on_click=logout_user,
                 )
             )
-            # --- MODIFICACIÓN DE ICONO: Agenda de Contactos ahora va a la lista ---
             app_bar_actions.append(
                 ft.IconButton(
-                    icon=ft.Icons.CONTACTS, # Icono para la agenda
+                    icon=ft.Icons.CONTACTS, 
                     icon_color=ft.Colors.WHITE,
                     icon_size=24,
                     tooltip="Ver Contactos",
-                    on_click=lambda e: page.go("/contacts_list"), # IR A LA LISTA DE CONTACTOS
+                    on_click=lambda e: page.go("/contacts_list"), 
                 )
             )
-            # --- FIN MODIFICACIÓN DE ICONO ---
         else:
             app_bar_actions.append(
                 ft.IconButton(
@@ -334,20 +311,19 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     actions=app_bar_actions
                 ),
-                ft.Column( # Contenedor principal de la vista Home
+                ft.Column( 
                     [
-                        ft.Container(expand=True), # Este Container "empuja" el contenido hacia arriba y el footer hacia abajo
-                        footer_text_widget, # El footer
+                        ft.Container(expand=True), 
+                        footer_text_widget, 
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True # La columna ocupa todo el espacio vertical disponible
+                    expand=True 
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, 
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # 2. Login View (sin cambios)
     username_email_input = ft.TextField(
         label="Usuario o Email",
         hint_text="Ingresa tu usuario o correo",
@@ -400,10 +376,10 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home"))
                 ),
-                ft.Column( # Contenedor principal de la vista Login
+                ft.Column( 
                     [
-                        ft.Container(expand=True), # Espacio flexible arriba para centrar
-                        ft.Column( # Columna que contiene los elementos del formulario
+                        ft.Container(expand=True), 
+                        ft.Column( 
                             [
                                 ft.Text("Inicia Sesión en tu Cuenta", size=24, weight=ft.FontWeight.BOLD),
                                 ft.ResponsiveRow(
@@ -431,18 +407,17 @@ def main(page: ft.Page):
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             spacing=15,
                         ),
-                        ft.Container(expand=True), # Espacio flexible abajo para centrar
-                        footer_text_widget, # El footer
+                        ft.Container(expand=True), 
+                        footer_text_widget, 
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True, # La columna principal debe expandirse para que el centrado funcione
+                    expand=True, 
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, 
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # 3. Register View (sin cambios)
     reg_nombre_input = ft.TextField(label="Nombre", expand=True)
     reg_p_apellido_input = ft.TextField(label="Primer Apellido", expand=True)
     reg_s_apellido_input = ft.TextField(label="Segundo Apellido (Opcional)", expand=True)
@@ -463,7 +438,6 @@ def main(page: ft.Page):
         password = reg_password_input.value.strip()
         confirm_password = reg_confirm_password_input.value.strip()
 
-        # Validaciones
         if not all([nombre, p_apellido, usuario, email, password, confirm_password]):
             register_message_text.value = "Por favor, completa todos los campos obligatorios."
             register_message_text.color = ft.Colors.RED_500
@@ -509,7 +483,6 @@ def main(page: ft.Page):
             register_message_text.color = ft.Colors.RED_500
             page.update()
 
-
     def register_view():
         return ft.View(
             "/register",
@@ -521,13 +494,12 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/login"))
                 ),
-                ft.Column( # Contenedor principal de la vista Register
+                ft.Column( 
                     [
-                        ft.Container(expand=True), # Espacio flexible arriba para centrar
-                        ft.Column( # Columna que contiene los elementos del formulario
+                        ft.Container(expand=True), 
+                        ft.Column( 
                             [
                                 ft.Text("Crea una Nueva Cuenta", size=24, weight=ft.FontWeight.BOLD),
-                                # ResponsiveRows para centrar y ajustar en móvil
                                 ft.ResponsiveRow([ft.Column([reg_nombre_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
                                 ft.ResponsiveRow([ft.Column([reg_p_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
                                 ft.ResponsiveRow([ft.Column([reg_s_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
@@ -550,19 +522,17 @@ def main(page: ft.Page):
                             spacing=15,
                             scroll=ft.ScrollMode.ADAPTIVE,
                         ),
-                        ft.Container(expand=True), # Espacio flexible abajo para centrar
-                        footer_text_widget, # El footer
+                        ft.Container(expand=True), 
+                        footer_text_widget, 
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True, # La columna principal debe expandirse para que el centrado funcione
+                    expand=True, 
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, 
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS - FORMULARIO DE AÑADIR ---
-    # Campos de entrada para el formulario de contacto (se mantienen para la vista de añadir y editar)
     contact_nombre_input = ft.TextField(label="Nombre", expand=True)
     contact_primer_apellido_input = ft.TextField(label="Primer Apellido", expand=True)
     contact_segundo_apellido_input = ft.TextField(label="Segundo Apellido (Opcional)", expand=True)
@@ -595,14 +565,12 @@ def main(page: ft.Page):
 
 
     def save_contact(e):
-        # Validar campos obligatorios
         if not all([contact_nombre_input.value, contact_primer_apellido_input.value]):
             add_contact_message_text.value = "Nombre y Primer Apellido son obligatorios."
             add_contact_message_text.color = ft.Colors.RED_500
             page.update()
             return
         
-        # Validar formato de email si se proporciona
         if contact_email_input.value and not is_valid_email(contact_email_input.value):
             add_contact_message_text.value = "Formato de correo electrónico inválido."
             add_contact_message_text.color = ft.Colors.RED_500
@@ -630,7 +598,6 @@ def main(page: ft.Page):
         if success:
             add_contact_message_text.value = message
             add_contact_message_text.color = ft.Colors.GREEN_500
-            # Limpiar campos después de guardar
             contact_nombre_input.value = ""
             contact_primer_apellido_input.value = ""
             contact_segundo_apellido_input.value = ""
@@ -638,22 +605,19 @@ def main(page: ft.Page):
             contact_movil_input.value = ""
             contact_email_input.value = ""
             contact_direccion_input.value = ""
-            contact_actividad_dropdown.value = "" # Restablecer Dropdown
+            contact_actividad_dropdown.value = "" 
             contact_nota_input.value = ""
             contact_empresa_input.value = ""
             contact_sitio_web_input.value = ""
-            contact_capacidad_persona_dropdown.value = "" # Restablecer Dropdown
-            contact_participacion_dropdown.value = "" # Restablecer Dropdown
+            contact_capacidad_persona_dropdown.value = "" 
+            contact_participacion_dropdown.value = "" 
             page.update()
-            # Opcional: Redirigir a la lista de contactos después de añadir
-            # page.go("/contacts_list") 
         else:
             add_contact_message_text.value = message
             add_contact_message_text.color = ft.Colors.RED_500
             page.update()
 
     def add_contact_view():
-        # Asegurarse de limpiar los campos al entrar a la vista de añadir
         contact_nombre_input.value = ""
         contact_primer_apellido_input.value = ""
         contact_segundo_apellido_input.value = ""
@@ -668,7 +632,7 @@ def main(page: ft.Page):
         contact_capacidad_persona_dropdown.value = ""
         contact_participacion_dropdown.value = ""
         add_contact_message_text.value = ""
-        page.update() # Asegurar que los cambios se reflejen
+        page.update() 
 
         return ft.View(
             "/add_contact",
@@ -678,9 +642,9 @@ def main(page: ft.Page):
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
-                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list")) # Volver a la lista
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list")) 
                 ),
-                ft.Column( # Contenedor principal de la vista de añadir contacto
+                ft.Column( 
                     [
                         ft.Text("Datos del Contacto", size=24, weight=ft.FontWeight.BOLD),
                         ft.ResponsiveRow([ft.Column([contact_nombre_input], col={"xs": 12, "md": 6})]),
@@ -691,9 +655,9 @@ def main(page: ft.Page):
                             ft.Column([contact_movil_input], col={"xs": 12, "md": 6}),
                         ]),
                         ft.ResponsiveRow([ft.Column([contact_email_input], col={"xs": 12, "md": 6})]),
-                        ft.ResponsiveRow([ft.Column([contact_direccion_input], col={"xs": 12, "md": 12})]), # Dirección puede ser más ancha
+                        ft.ResponsiveRow([ft.Column([contact_direccion_input], col={"xs": 12, "md": 12})]), 
                         ft.ResponsiveRow([ft.Column([contact_actividad_dropdown], col={"xs": 12, "md": 6})]),
-                        ft.ResponsiveRow([ft.Column([contact_nota_input], col={"xs": 12, "md": 12})]), # Nota también puede ser más ancha
+                        ft.ResponsiveRow([ft.Column([contact_nota_input], col={"xs": 12, "md": 12})]), 
                         ft.ResponsiveRow([
                             ft.Column([contact_empresa_input], col={"xs": 12, "md": 6}),
                             ft.Column([contact_sitio_web_input], col={"xs": 12, "md": 6}),
@@ -718,9 +682,8 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS - LISTA DE CONTACTOS ---
     def contacts_list_view():
-        contacts = get_all_contacts_db() # Obtener todos los contactos de la DB
+        contacts = get_all_contacts_db() 
 
         contact_items = []
         if not contacts:
@@ -729,9 +692,9 @@ def main(page: ft.Page):
             )
         else:
             for contact in contacts:
-                contact_id = contact[0] # ID del contacto
-                nombre_completo = f"{contact[1]} {contact[2]}" # Nombre y primer apellido
-                if contact[3]: # Segundo apellido
+                contact_id = contact[0] 
+                nombre_completo = f"{contact[1]} {contact[2]}" 
+                if contact[3]: 
                     nombre_completo += f" {contact[3]}"
                 
                 movil_text = f"Móvil: {contact[5]}" if contact[5] else "Móvil: N/A"
@@ -744,7 +707,7 @@ def main(page: ft.Page):
                                 [
                                     ft.Text(nombre_completo, size=18, weight=ft.FontWeight.BOLD),
                                     ft.Text(movil_text, size=14, color=ft.Colors.GREY_700),
-                                    ft.Divider(height=5, color=ft.Colors.GREY_300), # Separador visual
+                                    ft.Divider(height=5, color=ft.Colors.GREY_300), 
                                     ft.TextButton(
                                         "Ver Más",
                                         on_click=lambda e, cid=contact_id: page.go(f"/contact_detail/{cid}"),
@@ -794,14 +757,11 @@ def main(page: ft.Page):
             vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-    # --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS - LISTA DE CONTACTOS ---
 
-    # --- NUEVA VISTA: DETALLE DE CONTACTO ---
     def contact_detail_view(contact_id):
-        contact = get_contact_by_id_db(contact_id) # Obtener el contacto por su ID
+        contact = get_contact_by_id_db(contact_id)
 
         if not contact:
-            # Manejar caso de contacto no encontrado
             return ft.View(
                 f"/contact_detail/{contact_id}",
                 [
@@ -819,92 +779,71 @@ def main(page: ft.Page):
                             ft.Container(expand=True),
                             footer_text_widget,
                         ],
-                        alignment=ft.MainAxisAlignment.CENTER, # Esto es para el *contenido* de la Column si no hay `expand`
+                        alignment=ft.MainAxisAlignment.CENTER, 
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         expand=True
                     )
                 ]
             )
 
-        # Mapeo de índices a nombres para facilitar la lectura
-        # id (0), nombre (1), primer_apellido (2), segundo_apellido (3),
-        # telefono (4), movil (5), email (6), direccion (7), actividad (8),
-        # nota (9), empresa (10), sitio_web (11), capacidad_persona (12), participacion (13)
-
-        # Construir el nombre completo para el título de la AppBar
         nombre_completo_titulo = f"{contact[1]} {contact[2]}"
         if contact[3]:
             nombre_completo_titulo += f" {contact[3]}"
         
-        # Lista para almacenar todos los detalles del contacto para la tarjeta
         all_contact_details = []
 
-        # Añadir cada campo si tiene valor, con iconos
-        if contact[4]: # Telefono
+        if contact[4]: 
             all_contact_details.append(ft.Text(f"📞 Teléfono: {contact[4]}", size=14, color=ft.Colors.BLACK87))
-        if contact[5]: # Movil
+        if contact[5]: 
             all_contact_details.append(ft.Text(f"📱 Móvil: {contact[5]}", size=14, color=ft.Colors.BLACK87))
-        if contact[6]: # Email
+        if contact[6]: 
             all_contact_details.append(ft.Text(f"📧 Email: {contact[6]}", size=14, color=ft.Colors.BLACK87))
-        if contact[7]: # Dirección
+        if contact[7]: 
             all_contact_details.append(ft.Text(f"📍 Dirección: {contact[7]}", size=14, color=ft.Colors.BLACK87))
-        if contact[8]: # Actividad
+        if contact[8]: 
             all_contact_details.append(ft.Text(f"⚙️ Actividad: {contact[8]}", size=14, color=ft.Colors.BLACK87))
-        if contact[9]: # Nota
+        if contact[9]: 
             all_contact_details.append(ft.Text(f"📝 Nota: {contact[9]}", size=14, color=ft.Colors.BLACK87))
-        if contact[10]: # Empresa
+        if contact[10]: 
             all_contact_details.append(ft.Text(f"🏢 Empresa: {contact[10]}", size=14, color=ft.Colors.BLACK87))
-        if contact[11]: # Sitio Web
+        if contact[11]: 
             all_contact_details.append(ft.Text(f"🌐 Sitio Web: {contact[11]}", size=14, color=ft.Colors.BLACK87))
-        if contact[12]: # Capacidad de Persona
+        if contact[12]: 
             all_contact_details.append(ft.Text(f"🏃 Capacidad: {contact[12]}", size=14, color=ft.Colors.BLACK87))
-        if contact[13]: # Participación
+        if contact[13]: 
             all_contact_details.append(ft.Text(f"🤝 Participación: {contact[13]}", size=14, color=ft.Colors.BLACK87))
 
-        # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
-        # Ahora, esta es la función que se llama directamente desde el botón.
-        # Usa el diálogo global
+        def close_dialog_and_update(e_dialog): # Nueva función para cerrar el diálogo
+            confirm_dialog_global.open = False
+            page.update()
+
         def confirm_delete_dialog_handler(e):
-            print(f"DEBUG: confirm_delete_dialog_handler llamado para ID: {contact_id}") # DEBUG
+            print(f"DEBUG: confirm_delete_dialog_handler llamado para ID: {contact_id}") 
             
-            def delete_confirmed(e_dialog): # El 'e_dialog' es el evento del click del botón "Sí, Eliminar"
-                print(f"DEBUG: delete_confirmed llamado para ID: {contact_id}") # DEBUG
-                # YA NO ES NECESARIO page.dialog = confirm_dialog_global, YA ESTÁ EN page.overlay
-                confirm_dialog_global.open = False # Cerrar el diálogo
-                page.update() # Actualizar para cerrar el diálogo (y aplicar otros cambios si los hubiera)
+            def delete_confirmed(e_dialog): 
+                print(f"DEBUG: delete_confirmed llamado para ID: {contact_id}") 
+                confirm_dialog_global.open = False 
+                page.update() 
 
-                success, message = delete_contact_db(contact_id) # Usar contact_id del scope
+                success, message = delete_contact_db(contact_id) 
 
-                # Mostrar SnackBar
                 page.snack_bar = ft.SnackBar(
                     ft.Text(message, color=ft.Colors.WHITE),
                     bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
                     open=True
                 )
-                page.update() # Actualiza la página para mostrar el SnackBar
+                page.update() 
 
                 if success:
-                    # Redirigir a la lista de contactos después de un pequeño retraso para ver el snackbar
-                    # Usamos time.sleep para una pausa simple, ya que run_animation no es para esto.
-                    # Nota: time.sleep() bloquea el UI, para apps complejas usar asincronía (asyncio.sleep)
-                    # o un Timer si es crítico que el UI no se congele, pero para 300ms está bien.
-                    time.sleep(0.3) # 0.3 segundos de pausa
+                    time.sleep(0.3) 
                     page.go("/contacts_list") 
-                # Si no fue exitoso, el snackbar ya mostró el mensaje de error y no redirigimos.
 
-            # Configurar el diálogo global
             confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar a {nombre_completo_titulo}? Esta acción no se puede deshacer."
-            confirm_dialog_global.actions[0].on_click = delete_confirmed # Asignar el on_click al botón "Sí, Eliminar"
-            # CORRECCIÓN: Usar page.close_dialog_async en lugar de page.close_dialog
-            confirm_dialog_global.actions[1].on_click = lambda e_dialog: page.close_dialog_async(confirm_dialog_global) # Asignar al botón "Cancelar"
+            confirm_dialog_global.actions[0].on_click = delete_confirmed 
+            confirm_dialog_global.actions[1].on_click = close_dialog_and_update # Asignar la nueva función aquí
             
-            # Ya no es necesario page.dialog = confirm_dialog_global aquí porque ya está en page.overlay
-            # Esto es una redundancia que puede causar problemas si Flet ya lo gestiona.
-            # page.dialog = confirm_dialog_global # Eliminar o comentar esta línea
-
             confirm_dialog_global.open = True
-            page.update() # Abrir el diálogo
-        # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
+            page.update() 
 
         return ft.View(
             f"/contact_detail/{contact_id}",
@@ -915,26 +854,24 @@ def main(page: ft.Page):
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list")),
-                    # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Botones en AppBar ---
                     actions=[
                         ft.IconButton(
                             icon=ft.Icons.EDIT,
                             icon_color=ft.Colors.WHITE,
                             tooltip="Editar Contacto",
-                            on_click=lambda e: page.go(f"/edit_contact/{contact_id}") # Navegar a la vista de edición
+                            on_click=lambda e: page.go(f"/edit_contact/{contact_id}") 
                         ),
                         ft.IconButton(
                             icon=ft.Icons.DELETE,
-                            icon_color=ft.Colors.RED_200, # Un rojo suave para que no sea tan brusco en la AppBar
+                            icon_color=ft.Colors.RED_200, 
                             tooltip="Eliminar Contacto",
-                            on_click=confirm_delete_dialog_handler # Llamada directa a la nueva función handler
+                            on_click=confirm_delete_dialog_handler 
                         ),
                     ]
-                    # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Botones en AppBar ---
                 ),
                 ft.Column(
                     [
-                        ft.Container(expand=True), # Espacio flexible arriba
+                        ft.Container(expand=True), 
                         ft.Card(
                             content=ft.Container(
                                 padding=20,
@@ -942,28 +879,26 @@ def main(page: ft.Page):
                                     [
                                         ft.Text("Detalles del Contacto", size=22, weight=ft.FontWeight.BOLD),
                                         ft.Divider(height=10, color=ft.Colors.ORANGE_200),
-                                        *all_contact_details, # Desempaqueta todos los detalles
+                                        *all_contact_details, 
                                     ],
                                     spacing=8
                                 )
                             ),
                             elevation=4,
-                            margin=ft.margin.all(20), # Margen alrededor de la tarjeta para centrarla
+                            margin=ft.margin.all(20), 
                         ),
-                        ft.Container(expand=True), # Espacio flexible abajo
+                        ft.Container(expand=True), 
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     expand=True,
-                    scroll=ft.ScrollMode.ADAPTIVE # Por si los detalles son muchos en una pantalla pequeña
+                    scroll=ft.ScrollMode.ADAPTIVE 
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Esto es para el View, NO para la Column interna
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, 
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-    # --- FIN NUEVA VISTA: DETALLE DE CONTACTO ---
 
-    # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - VISTA DE EDICIÓN ---
     def edit_contact_view(contact_id):
         contact = get_contact_by_id_db(contact_id)
 
@@ -977,13 +912,9 @@ def main(page: ft.Page):
                 ]
             )
         
-        # Pre-llenar los campos con los datos existentes del contacto
-        # id (0), nombre (1), primer_apellido (2), segundo_apellido (3),
-        # telefono (4), movil (5), email (6), direccion (7), actividad (8),
-        # nota (9), empresa (10), sitio_web (11), capacidad_persona (12), participacion (13)
         contact_nombre_input.value = contact[1]
         contact_primer_apellido_input.value = contact[2]
-        contact_segundo_apellido_input.value = contact[3] if contact[3] else "" # Manejar None
+        contact_segundo_apellido_input.value = contact[3] if contact[3] else "" 
         contact_telefono_input.value = contact[4] if contact[4] else ""
         contact_movil_input.value = contact[5] if contact[5] else ""
         contact_email_input.value = contact[6] if contact[6] else ""
@@ -994,18 +925,16 @@ def main(page: ft.Page):
         contact_sitio_web_input.value = contact[11] if contact[11] else ""
         contact_capacidad_persona_dropdown.value = contact[12] if contact[12] else ""
         contact_participacion_dropdown.value = contact[13] if contact[13] else ""
-        edit_contact_message_text.value = "" # Limpiar mensajes previos
-        page.update() # Asegurar que los campos se actualicen en la UI
+        edit_contact_message_text.value = "" 
+        page.update() 
 
         def update_existing_contact(e):
-            # Validar campos obligatorios
             if not all([contact_nombre_input.value, contact_primer_apellido_input.value]):
                 edit_contact_message_text.value = "Nombre y Primer Apellido son obligatorios."
                 edit_contact_message_text.color = ft.Colors.RED_500
                 page.update()
                 return
             
-            # Validar formato de email si se proporciona
             if contact_email_input.value and not is_valid_email(contact_email_input.value):
                 edit_contact_message_text.value = "Formato de correo electrónico inválido."
                 edit_contact_message_text.color = ft.Colors.RED_500
@@ -1034,7 +963,6 @@ def main(page: ft.Page):
                 edit_contact_message_text.value = message
                 edit_contact_message_text.color = ft.Colors.GREEN_500
                 page.update()
-                # Redirigir de nuevo a la vista de detalle
                 page.go(f"/contact_detail/{contact_id}") 
             else:
                 edit_contact_message_text.value = message
@@ -1051,7 +979,7 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go(f"/contact_detail/{contact_id}"))
                 ),
-                ft.Column( # Contenedor principal de la vista de editar contacto
+                ft.Column( 
                     [
                         ft.Text("Modificar Datos del Contacto", size=24, weight=ft.FontWeight.BOLD),
                         ft.ResponsiveRow([ft.Column([contact_nombre_input], col={"xs": 12, "md": 6})]),
@@ -1088,13 +1016,9 @@ def main(page: ft.Page):
             vertical_alignment=ft.MainAxisAlignment.START,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-    # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - VISTA DE EDICIÓN ---
 
-
-    # --- Manejo de Rutas ---
     def route_change(route):
         page.views.clear()
-        # Manejo de rutas estáticas
         if page.route == "/home":
             page.views.append(home_view())
         elif page.route == "/login":
@@ -1105,15 +1029,12 @@ def main(page: ft.Page):
             page.views.append(add_contact_view())
         elif page.route == "/contacts_list":
             page.views.append(contacts_list_view())
-        # --- Manejo de ruta dinámica para detalles de contacto ---
         elif page.route.startswith("/contact_detail/"):
-            # Extraer el ID del contacto de la ruta
             parts = page.route.split("/")
             try:
-                contact_id = int(parts[-1]) # El ID es el último segmento de la URL
+                contact_id = int(parts[-1])
                 page.views.append(contact_detail_view(contact_id))
             except ValueError:
-                # Manejar caso de ID no válido (ej. /contact_detail/abc)
                 page.views.append(
                     ft.View(
                         "/error",
@@ -1124,7 +1045,6 @@ def main(page: ft.Page):
                         ]
                     )
                 )
-        # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Manejo de ruta de edición ---
         elif page.route.startswith("/edit_contact/"):
             parts = page.route.split("/")
             try:
@@ -1141,8 +1061,7 @@ def main(page: ft.Page):
                         ]
                     )
                 )
-        # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Manejo de ruta de edición ---
-        else: # Ruta por defecto
+        else: 
             page.views.append(home_view())
         page.update()
 
@@ -1153,8 +1072,7 @@ def main(page: ft.Page):
 
     page.on_route_change = route_change
     page.on_view_pop = view_pop
-    page.go(page.route) # Iniciar la aplicación en la ruta actual (por defecto /home)
+    page.go(page.route) 
 
-# Ejecutar la aplicación
 if __name__ == "__main__":
     ft.app(target=main)
