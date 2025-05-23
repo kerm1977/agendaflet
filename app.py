@@ -1361,7 +1361,34 @@ def main(page: ft.Page):
                             content=search_input,
                             padding=ft.padding.symmetric(horizontal=10, vertical=5)
                         ),
-                        contacts_list_container, 
+                        contacts_list_container,
+                        # Nuevo botón para crear contacto
+                        ft.Container(height=20), # Espacio
+                        ft.ResponsiveRow(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.ElevatedButton(
+                                            "Crear Nuevo Contacto", # Texto del botón
+                                            icon=ft.Icons.ADD,
+                                            on_click=lambda e: page.go("/add_contact"), # Navega a la vista de agregar contacto
+                                            bgcolor=ft.Colors.ORANGE_700,
+                                            color=ft.Colors.WHITE,
+                                            expand=True,
+                                            style=ft.ButtonStyle(
+                                                shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                                                padding=ft.padding.symmetric(vertical=15, horizontal=25) # Mismo padding que el botón de cotizaciones
+                                            )
+                                        )
+                                    ],
+                                    col={"xs": 12},
+                                    alignment=ft.CrossAxisAlignment.CENTER
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=10
+                        ),
+                        ft.Container(height=20), # Espacio
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -2030,7 +2057,7 @@ def main(page: ft.Page):
                 icon=ft.Icons.ADD, 
                 on_click=lambda e: page.go("/add_contact"),
                 bgcolor=ft.Colors.ORANGE_700,
-                tooltip="Agregar Nuevo Contacto"
+                tooltip="Agregar Nuevo Contacto (FAB)" # Cambiado el tooltip para diferenciar
             )
         elif page.route.startswith("/contact_detail/"):
             parts = page.route.split("/")
