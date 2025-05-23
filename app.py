@@ -4,6 +4,7 @@ import hashlib
 import re
 import time 
 import datetime 
+import os # Importar el módulo os
 
 DATABASE_NAME = "users.db"
 LOGGED_IN_USER = None 
@@ -85,61 +86,74 @@ SINPE_CHOICES = [
 
 
 def init_db():
-    conn = sqlite3.connect(DATABASE_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            p_apellido TEXT NOT NULL,
-            s_apellido TEXT,
-            usuario TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            telefono TEXT,
-            password_hash TEXT NOT NULL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS contactos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            primer_apellido TEXT NOT NULL,
-            segundo_apellido TEXT,
-            telefono TEXT,
-            movil TEXT,
-            email TEXT,
-            direccion TEXT,
-            actividad TEXT,
-            nota TEXT,
-            empresa TEXT,
-            sitio_web TEXT,
-            capacidad_persona TEXT,
-            participacion TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS cotizaciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            quien_hace_cotizacion TEXT,
-            fecha_automatica TEXT,
-            dirigido_a TEXT,
-            actividad TEXT,
-            nombre_item TEXT,
-            fecha_actividad TEXT,
-            cantidad INTEGER,
-            precio REAL,
-            sinpe TEXT,
-            nota TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS app_settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    conn = None # Initialize conn to ensure it's always defined
+    try:
+        conn = sqlite3.connect(DATABASE_NAME)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                p_apellido TEXT NOT NULL,
+                s_apellido TEXT,
+                usuario TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                telefono TEXT,
+                password_hash TEXT NOT NULL
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS contactos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                primer_apellido TEXT NOT NULL,
+                segundo_apellido TEXT,
+                telefono TEXT,
+                movil TEXT,
+                email TEXT,
+                direccion TEXT,
+                actividad TEXT,
+                nota TEXT,
+                empresa TEXT,
+                sitio_web TEXT,
+                capacidad_persona TEXT,
+                participacion TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS cotizaciones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero_cotizacion TEXT UNIQUE NOT NULL, -- Nuevo campo para el número de cotización
+                quien_hace_cotizacion TEXT,
+                fecha_automatica TEXT,
+                dirigido_a TEXT,
+                actividad TEXT,
+                nombre_item TEXT,
+                fecha_actividad TEXT,
+                cantidad INTEGER,
+                precio REAL,
+                sinpe TEXT,
+                nota TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        ''')
+        conn.commit()
+        # Inicializar el contador de cotizaciones si no existe
+        cursor.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", ("last_quotation_number", "149"))
+        conn.commit()
+        print("DEBUG: Base de datos inicializada/actualizada correctamente.")
+    except Exception as e:
+        print(f"ERROR: Error durante la inicialización de la base de datos: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if conn:
+            conn.close()
 
 def get_setting_db(key):
     conn = sqlite3.connect(DATABASE_NAME)
@@ -304,6 +318,25 @@ def update_contact_db(contact_id, contact_data):
     finally:
         conn.close()
 
+def get_next_quotation_number():
+    """
+    Genera el siguiente número de cotización único, incrementando el contador en la DB.
+    Formato: 000150, 000151, etc.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = ?", ("last_quotation_number",))
+    current_num_str = cursor.fetchone()
+    
+    # Si no se encuentra, inicializa en 149 para que el primer número sea 150
+    current_num = int(current_num_str[0]) if current_num_str and current_num_str[0].isdigit() else 149 
+    next_num = current_num + 1
+    
+    cursor.execute("UPDATE app_settings SET value = ? WHERE key = ?", (str(next_num), "last_quotation_number"))
+    conn.commit()
+    conn.close()
+    return f"{next_num:06d}" # Formato de 6 dígitos con ceros a la izquierda
+
 def add_cotizacion_db(cotizacion_data):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
@@ -311,10 +344,12 @@ def add_cotizacion_db(cotizacion_data):
     try:
         cursor.execute('''
             INSERT INTO cotizaciones (
+                numero_cotizacion, -- Se añadió el número de cotización aquí
                 quien_hace_cotizacion, fecha_automatica, dirigido_a, actividad,
                 nombre_item, fecha_actividad, cantidad, precio, sinpe, nota
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
+            cotizacion_data['numero_cotizacion'], # Y aquí en los valores
             cotizacion_data['quien_hace_cotizacion'],
             cotizacion_data['fecha_automatica'],
             cotizacion_data['dirigido_a'],
@@ -375,10 +410,12 @@ def update_cotizacion_db(cotizacion_id, cotizacion_data):
     try:
         cursor.execute('''
             UPDATE cotizaciones SET
+                numero_cotizacion = ?, -- Se añadió el número de cotización aquí
                 quien_hace_cotizacion = ?, fecha_automatica = ?, dirigido_a = ?, actividad = ?,
                 nombre_item = ?, fecha_actividad = ?, cantidad = ?, precio = ?, sinpe = ?, nota = ?
             WHERE id = ?
         ''', (
+            cotizacion_data['numero_cotizacion'], # Y aquí en los valores
             cotizacion_data['quien_hace_cotizacion'],
             cotizacion_data['fecha_automatica'],
             cotizacion_data['dirigido_a'],
@@ -405,6 +442,23 @@ def main(page: ft.Page):
     page.title = "App de Autenticación Flet"
     page.window_width = 400 
     page.window_height = 700
+
+    # Eliminar el archivo de la base de datos si existe para forzar la recreación del esquema
+    if os.path.exists(DATABASE_NAME):
+        try:
+            os.remove(DATABASE_NAME)
+            print(f"DEBUG: Archivo de base de datos '{DATABASE_NAME}' eliminado para forzar la recreación del esquema.")
+            time.sleep(0.1) # Pequeña pausa para asegurar que el SO libere el archivo
+        except OSError as e:
+            print(f"ERROR: No se pudo eliminar el archivo '{DATABASE_NAME}'. Puede que esté en uso. Error: {e}")
+            # Considerar mostrar un mensaje al usuario o salir de la aplicación si esto es crítico
+            page.snack_bar = ft.SnackBar(
+                ft.Text(f"Error: No se pudo eliminar la base de datos. Por favor, cierra la aplicación y vuelve a intentarlo. ({e})", color=ft.Colors.WHITE),
+                bgcolor=ft.Colors.RED_700,
+                open=True
+            )
+            page.update()
+            return # Salir de main si no se puede eliminar la DB
 
     init_db()
 
@@ -448,6 +502,11 @@ def main(page: ft.Page):
     )
 
     # Controles para la nueva sección de Cotización (ahora globales para ser usados en la nueva vista)
+    cotizacion_numero_input = ft.TextField( # Nuevo campo para el número de cotización
+        label="Número de Cotización",
+        read_only=True,
+        expand=True,
+    )
     cotizacion_quien_hace_dropdown = ft.Dropdown(
         label="Quien hace cotización",
         options=QUIEN_HACE_COTIZACION_CHOICES,
@@ -504,13 +563,13 @@ def main(page: ft.Page):
     )
 
     cotizacion_cantidad_input = ft.TextField(
-        label="Cantidad de Personas", 
+        label="Cantidad", # Etiqueta cambiada
         input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*$", replacement_string=""),
         keyboard_type=ft.KeyboardType.NUMBER,
         expand=True,
     )
     cotizacion_precio_input = ft.TextField(
-        label="Precio del al Caminata, Producto, Servicio",
+        label="Costo", # Etiqueta cambiada
         input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*\.?[0-9]*$", replacement_string=""),
         keyboard_type=ft.KeyboardType.NUMBER,
         expand=True,
@@ -538,8 +597,8 @@ def main(page: ft.Page):
             "ACTIVIDAD": cotizacion_actividad_dropdown.value,
             "Nombre de la Caminata, Producto o Servicio": cotizacion_nombre_item_input.value,
             "Fecha de la actividad": cotizacion_fecha_actividad_input.value,
-            "Cantidad de Personas": cotizacion_cantidad_input.value,
-            "Precio del al Caminata, Producto, Servicio": cotizacion_precio_input.value,
+            "Cantidad": cotizacion_cantidad_input.value,
+            "Costo": cotizacion_precio_input.value,
         }
 
         missing_fields = [label for label, value in required_fields.items() if not value]
@@ -560,7 +619,7 @@ def main(page: ft.Page):
             precio = float(cotizacion_precio_input.value)
         except ValueError as ve:
             page.snack_bar = ft.SnackBar(
-                ft.Text(f"Cantidad y Precio deben ser números válidos. Error: {ve}", color=ft.Colors.WHITE),
+                ft.Text(f"Cantidad y Costo deben ser números válidos. Error: {ve}", color=ft.Colors.WHITE),
                 bgcolor=ft.Colors.RED_600,
                 open=True
             )
@@ -569,6 +628,7 @@ def main(page: ft.Page):
             return
 
         cotizacion_data = {
+            'numero_cotizacion': cotizacion_numero_input.value, # Se obtiene el número de cotización del campo
             'quien_hace_cotizacion': cotizacion_quien_hace_dropdown.value,
             'fecha_automatica': cotizacion_fecha_automatica_input.value,
             'dirigido_a': cotizacion_dirigido_a_input.value,
@@ -602,6 +662,8 @@ def main(page: ft.Page):
             cotizacion_precio_input.value = ''
             cotizacion_sinpe_dropdown.value = ''
             cotizacion_nota_input.value = ''
+            # Actualizar el número de cotización para la próxima vez que se abra el formulario
+            cotizacion_numero_input.value = get_next_quotation_number() 
             page.update()
             page.go("/quotations_list") # Navegar a la lista de cotizaciones después de guardar
         print("DEBUG: Finalizando save_cotizacion.")
@@ -714,6 +776,7 @@ def main(page: ft.Page):
         # Actualizar el valor de 'Dirigido a' cada vez que se carga la vista
         cotizacion_dirigido_a_input.value = LOGGED_IN_USER if LOGGED_IN_USER else ""
         cotizacion_fecha_automatica_input.value = datetime.date.today().strftime('%Y-%m-%d') # Asegurar fecha actual al cargar
+        cotizacion_numero_input.value = get_next_quotation_number() # Obtener el siguiente número de cotización
 
         return ft.View(
             "/cotizacion_form",
@@ -730,6 +793,7 @@ def main(page: ft.Page):
                         ft.Text("Crear Nueva Cotización", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK54),
                         ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
 
+                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), # Mostrar el número de cotización
                         ft.ResponsiveRow([ft.Column([cotizacion_quien_hace_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_fecha_automatica_input], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_dirigido_a_input], col={"xs": 12})]),
@@ -1323,12 +1387,13 @@ def main(page: ft.Page):
         
         query = """
             SELECT * FROM cotizaciones WHERE
+            LOWER(numero_cotizacion) LIKE ? OR -- Incluir búsqueda por número de cotización
             LOWER(actividad) LIKE ? OR
             LOWER(nombre_item) LIKE ? OR
             LOWER(dirigido_a) LIKE ?
             ORDER BY fecha_automatica DESC
         """
-        cursor.execute(query, (search_term_lower, search_term_lower, search_term_lower))
+        cursor.execute(query, (search_term_lower, search_term_lower, search_term_lower, search_term_lower))
         cotizaciones = cursor.fetchall()
         conn.close()
         return cotizaciones
@@ -1343,10 +1408,11 @@ def main(page: ft.Page):
         else:
             for cotizacion in cotizaciones:
                 cotizacion_id = cotizacion[0]
-                dirigido_a = cotizacion[3]
-                actividad = cotizacion[4]
-                nombre_item = cotizacion[5]
-                fecha_actividad = cotizacion[6]
+                numero_cotizacion = cotizacion[1] # Nuevo índice
+                dirigido_a = cotizacion[3] # Índice ajustado
+                actividad = cotizacion[4] # Índice ajustado
+                nombre_item = cotizacion[5] # Índice ajustado
+                fecha_actividad = cotizacion[6] # Índice ajustado
 
                 quotation_items.append(
                     ft.Card(
@@ -1354,7 +1420,8 @@ def main(page: ft.Page):
                             padding=10,
                             content=ft.Column(
                                 [
-                                    ft.Text(f"Para: {dirigido_a}", size=18, weight=ft.FontWeight.BOLD),
+                                    ft.Text(f"Cotización #: {numero_cotizacion}", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800), # Mostrar número
+                                    ft.Text(f"Para: {dirigido_a}", size=16, weight=ft.FontWeight.BOLD),
                                     ft.Text(f"Actividad: {actividad}", size=14, color=ft.Colors.GREY_700),
                                     ft.Text(f"Item: {nombre_item}", size=14, color=ft.Colors.GREY_700),
                                     ft.Text(f"Fecha de Actividad: {fecha_actividad}", size=14, color=ft.Colors.GREY_700),
@@ -1690,17 +1757,19 @@ def main(page: ft.Page):
                 ]
             )
         
+        # Ajustar los índices debido al nuevo campo numero_cotizacion
         details = [
-            ft.Text(f"Quien hace: {cotizacion[1]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Fecha automática: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Dirigido a: {cotizacion[3]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Actividad: {cotizacion[4]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Nombre del Item: {cotizacion[5]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Fecha de Actividad: {cotizacion[6]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Cantidad de Personas: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Precio: ₡{cotizacion[8]:.2f}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Sinpe: {cotizacion[9]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Nota: {cotizacion[10]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Número de Cotización: {cotizacion[1]}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
+            ft.Text(f"Quien hace: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Fecha automática: {cotizacion[3]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Dirigido a: {cotizacion[4]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Actividad: {cotizacion[5]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Nombre del Item: {cotizacion[6]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Fecha de Actividad: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Cantidad: {cotizacion[8]}", size=14, color=ft.Colors.BLACK87), # Etiqueta ajustada
+            ft.Text(f"Costo: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87), # Etiqueta ajustada
+            ft.Text(f"Sinpe: {cotizacion[10]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Nota: {cotizacion[11]}", size=14, color=ft.Colors.BLACK87),
         ]
 
         def confirm_delete_quotation_handler(e):
@@ -1718,7 +1787,7 @@ def main(page: ft.Page):
                     time.sleep(0.3)
                     page.go("/quotations_list")
 
-            confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar esta cotización para {cotizacion[3]}?"
+            confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar esta cotización para {cotizacion[4]} (Cotización #: {cotizacion[1]})?"
             confirm_dialog_global.actions[0].on_click = delete_confirmed
             confirm_dialog_global.actions[1].on_click = close_confirm_dialog
             confirm_dialog_global.open = True
@@ -1728,7 +1797,7 @@ def main(page: ft.Page):
             f"/quotation_detail/{quotation_id}",
             [
                 ft.AppBar(
-                    title=ft.Text(f"Detalle Cotización: {cotizacion[3]}"),
+                    title=ft.Text(f"Detalle Cotización: {cotizacion[4]}"), # Ajustar título
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
@@ -1791,16 +1860,18 @@ def main(page: ft.Page):
                 ]
             )
 
-        cotizacion_quien_hace_dropdown.value = cotizacion[1] if cotizacion[1] else ''
-        cotizacion_fecha_automatica_input.value = cotizacion[2] if cotizacion[2] else ''
-        cotizacion_dirigido_a_input.value = cotizacion[3] if cotizacion[3] else ''
-        cotizacion_actividad_dropdown.value = cotizacion[4] if cotizacion[4] else ''
-        cotizacion_nombre_item_input.value = cotizacion[5] if cotizacion[5] else ''
-        cotizacion_fecha_actividad_input.value = cotizacion[6] if cotizacion[6] else ''
-        cotizacion_cantidad_input.value = str(cotizacion[7]) if cotizacion[7] else ''
-        cotizacion_precio_input.value = str(cotizacion[8]) if cotizacion[8] else ''
-        cotizacion_sinpe_dropdown.value = cotizacion[9] if cotizacion[9] else ''
-        cotizacion_nota_input.value = cotizacion[10] if cotizacion[10] else ''
+        # Ajustar los índices al cargar los valores para edición
+        cotizacion_numero_input.value = cotizacion[1] if cotizacion[1] else '' # Nuevo campo
+        cotizacion_quien_hace_dropdown.value = cotizacion[2] if cotizacion[2] else ''
+        cotizacion_fecha_automatica_input.value = cotizacion[3] if cotizacion[3] else ''
+        cotizacion_dirigido_a_input.value = cotizacion[4] if cotizacion[4] else ''
+        cotizacion_actividad_dropdown.value = cotizacion[5] if cotizacion[5] else ''
+        cotizacion_nombre_item_input.value = cotizacion[6] if cotizacion[6] else ''
+        cotizacion_fecha_actividad_input.value = cotizacion[7] if cotizacion[7] else ''
+        cotizacion_cantidad_input.value = str(cotizacion[8]) if cotizacion[8] else ''
+        cotizacion_precio_input.value = str(cotizacion[9]) if cotizacion[9] else ''
+        cotizacion_sinpe_dropdown.value = cotizacion[10] if cotizacion[10] else ''
+        cotizacion_nota_input.value = cotizacion[11] if cotizacion[11] else ''
         
         page.update()
 
@@ -1822,7 +1893,7 @@ def main(page: ft.Page):
                 precio = float(cotizacion_precio_input.value)
             except ValueError:
                 page.snack_bar = ft.SnackBar(
-                    ft.Text("Cantidad y Precio deben ser números válidos.", color=ft.Colors.WHITE),
+                    ft.Text("Cantidad y Costo deben ser números válidos.", color=ft.Colors.WHITE),
                     bgcolor=ft.Colors.RED_600,
                     open=True
                 )
@@ -1830,6 +1901,7 @@ def main(page: ft.Page):
                 return
 
             updated_data = {
+                'numero_cotizacion': cotizacion_numero_input.value, # Se mantiene el número de cotización existente
                 'quien_hace_cotizacion': cotizacion_quien_hace_dropdown.value,
                 'fecha_automatica': cotizacion_fecha_automatica_input.value,
                 'dirigido_a': cotizacion_dirigido_a_input.value,
@@ -1858,7 +1930,7 @@ def main(page: ft.Page):
             f"/edit_quotation/{quotation_id}",
             [
                 ft.AppBar(
-                    title=ft.Text(f"Editar Cotización: {cotizacion[3]}"),
+                    title=ft.Text(f"Editar Cotización: {cotizacion[4]}"), # Ajustar título
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
@@ -1867,6 +1939,7 @@ def main(page: ft.Page):
                 ft.Column(
                     [
                         ft.Text("Modificar Datos de la Cotización", size=24, weight=ft.FontWeight.BOLD),
+                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), # Mostrar número de cotización
                         ft.ResponsiveRow([ft.Column([cotizacion_quien_hace_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_fecha_automatica_input], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_dirigido_a_input], col={"xs": 12})]),
@@ -1992,7 +2065,12 @@ def main(page: ft.Page):
 
     page.on_route_change = route_change
     page.on_view_pop = view_pop
-    page.go(page.route) 
+    
+    # Set initial route based on login status
+    if LOGGED_IN_USER:
+        page.go("/home")
+    else:
+        page.go("/login")
 
 if __name__ == "__main__":
     ft.app(target=main)
