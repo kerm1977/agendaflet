@@ -717,6 +717,7 @@ def main(page: ft.Page):
                     on_click=lambda e: page.go("/quotations_list"), 
                 )
             )
+            # Se ha eliminado el botón "Ver Contactos" de la barra de acciones.
         else:
             app_bar_actions.append(
                 ft.IconButton(
@@ -791,6 +792,24 @@ def main(page: ft.Page):
                                     vertical_alignment=ft.CrossAxisAlignment.CENTER
                                 ),
                                 on_click=lambda e: page.go("/contacts_list")
+                            )
+                        ),
+                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), # Nuevo divisor para el nuevo botón
+
+                        ft.Card( # Nuevo botón "Normas de La Tribu"
+                            elevation=2,
+                            shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                            content=ft.Container(
+                                padding=ft.padding.symmetric(vertical=15, horizontal=15),
+                                content=ft.Row(
+                                    [
+                                        ft.Text("Normas de La Tribu", size=16, weight=ft.FontWeight.W_500, expand=True), 
+                                        ft.Icon(name=ft.Icons.KEYBOARD_ARROW_RIGHT, color=ft.Colors.GREY_500),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER
+                                ),
+                                on_click=lambda e: page.go("/normas_de_la_tribu") # Nueva ruta
                             )
                         ),
                         
@@ -877,6 +896,35 @@ def main(page: ft.Page):
                     [
                         ft.Container(expand=True),
                         ft.Text("Contenido de la Agenda (próximamente)", size=20, color=ft.Colors.BLACK54),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    # Vista de Normas de La Tribu (Placeholder)
+    def normas_de_la_tribu_view():
+        return ft.View(
+            "/normas_de_la_tribu",
+            [
+                ft.AppBar(
+                    title=ft.Text("Normas de La Tribu"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(height=20),
+                        ft.Text("Aquí irán las normas de La Tribu.", size=20, color=ft.Colors.BLACK54),
+                        ft.Text("¡Mantente atento a las actualizaciones!", size=16, color=ft.Colors.GREY_600),
                         ft.Container(expand=True),
                         footer_text_widget,
                     ],
@@ -2182,6 +2230,8 @@ def main(page: ft.Page):
                 )
         elif page.route == "/agenda":
             page.views.append(agenda_view())
+        elif page.route == "/normas_de_la_tribu": # Nueva ruta para Normas de La Tribu
+            page.views.append(normas_de_la_tribu_view())
         elif page.route == "/cotizacion_form":
             page.views.append(cotizacion_form_view())
         else: 
