@@ -573,6 +573,30 @@ def main(page: ft.Page):
         keyboard_type=ft.KeyboardType.NUMBER,
         expand=True,
     )
+
+    # Nuevo campo para el Total
+    cotizacion_total_input = ft.TextField(
+        label="Total",
+        read_only=True,
+        expand=True,
+        value="₡0.00" # Valor inicial
+    )
+
+    # Función para calcular el total automáticamente
+    def update_total(e):
+        try:
+            cantidad = float(cotizacion_cantidad_input.value or 0)
+            precio = float(cotizacion_precio_input.value or 0)
+            total = cantidad * precio
+            cotizacion_total_input.value = f"₡{total:.2f}"
+        except ValueError:
+            cotizacion_total_input.value = "Error"
+        page.update()
+
+    # Asignar la función update_total a los eventos on_change de Cantidad y Costo
+    cotizacion_cantidad_input.on_change = update_total
+    cotizacion_precio_input.on_change = update_total
+
     cotizacion_sinpe_dropdown = ft.Dropdown(
         label="Sinpe",
         options=SINPE_CHOICES,
@@ -660,6 +684,7 @@ def main(page: ft.Page):
             cotizacion_fecha_actividad_input.value = ''
             cotizacion_cantidad_input.value = ''
             cotizacion_precio_input.value = ''
+            cotizacion_total_input.value = '₡0.00' # Resetear el total
             cotizacion_sinpe_dropdown.value = ''
             cotizacion_nota_input.value = ''
             cotizacion_numero_input.value = peek_next_quotation_number_db() 
@@ -786,6 +811,7 @@ def main(page: ft.Page):
         cotizacion_dirigido_a_input.value = LOGGED_IN_USER if LOGGED_IN_USER else ""
         cotizacion_fecha_automatica_input.value = datetime.date.today().strftime('%Y-%m-%d') 
         cotizacion_numero_input.value = peek_next_quotation_number_db() 
+        cotizacion_total_input.value = '₡0.00' # Asegurar que el total se inicialice al cargar la vista
 
         return ft.View(
             "/cotizacion_form",
@@ -813,6 +839,7 @@ def main(page: ft.Page):
                             ft.Column([cotizacion_cantidad_input], col={"xs": 12, "md": 6}),
                             ft.Column([cotizacion_precio_input], col={"xs": 12, "md": 6}),
                         ]),
+                        ft.ResponsiveRow([ft.Column([cotizacion_total_input], col={"xs": 12})]), # Añadir el campo Total
                         ft.ResponsiveRow([ft.Column([cotizacion_sinpe_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_nota_input], col={"xs": 12})]),
                         
@@ -1825,6 +1852,15 @@ def main(page: ft.Page):
                 ]
             )
         
+        # Calcular el total para mostrar en el detalle
+        try:
+            cantidad = float(cotizacion[8])
+            precio = float(cotizacion[9])
+            total_calculado = cantidad * precio
+            total_display = f"₡{total_calculado:.2f}"
+        except (ValueError, TypeError):
+            total_display = "N/A" # En caso de que los valores no sean numéricos
+
         details = [
             ft.Text(f"Número de Cotización: {cotizacion[1]}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
             ft.Text(f"Quien hace: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87),
@@ -1835,6 +1871,7 @@ def main(page: ft.Page):
             ft.Text(f"Fecha de Actividad: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Cantidad: {cotizacion[8]}", size=14, color=ft.Colors.BLACK87), 
             ft.Text(f"Costo: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87), 
+            ft.Text(f"Total: {total_display}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700), # Mostrar el total
             ft.Text(f"Sinpe: {cotizacion[10]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Nota: {cotizacion[11]}", size=14, color=ft.Colors.BLACK87),
         ]
@@ -1939,6 +1976,15 @@ def main(page: ft.Page):
         cotizacion_sinpe_dropdown.value = cotizacion[10] if cotizacion[10] else ''
         cotizacion_nota_input.value = cotizacion[11] if cotizacion[11] else ''
         
+        # Calcular y establecer el total inicial al cargar la vista de edición
+        try:
+            cantidad = float(cotizacion_cantidad_input.value or 0)
+            precio = float(cotizacion_precio_input.value or 0)
+            total = cantidad * precio
+            cotizacion_total_input.value = f"₡{total:.2f}"
+        except ValueError:
+            cotizacion_total_input.value = "Error"
+
         page.update()
 
         def update_existing_quotation(e):
@@ -2016,6 +2062,7 @@ def main(page: ft.Page):
                             ft.Column([cotizacion_cantidad_input], col={"xs": 12, "md": 6}),
                             ft.Column([cotizacion_precio_input], col={"xs": 12, "md": 6}),
                         ]),
+                        ft.ResponsiveRow([ft.Column([cotizacion_total_input], col={"xs": 12})]), # Añadir el campo Total
                         ft.ResponsiveRow([ft.Column([cotizacion_sinpe_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_nota_input], col={"xs": 12})]),
                         ft.Container(height=20),
