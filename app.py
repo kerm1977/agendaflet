@@ -52,7 +52,7 @@ def authenticate_user_db(identifier, password_hash):
     user = cursor.fetchone()
     conn.close()
     if user:
-        return True, user[0] # Retorna True y el nombre de usuario
+        return True, user[0] # Retorna True y el nombre de usuario (el campo 'usuario')
     return False, None
 
 def is_valid_email(email):
@@ -61,50 +61,87 @@ def is_valid_email(email):
 
 def main(page: ft.Page):
     page.title = "App de Autenticación Flet"
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.window_width = 400 # Ancho para simular móvil
     page.window_height = 700
+    # Quitamos el page.vertical_alignment y page.horizontal_alignment de aquí
+    # para tener más control a nivel de View
 
     init_db()
 
-    # --- Controles Compartidos ---
-    app_bar_user_icon = ft.IconButton(
-        icon=ft.Icons.ACCOUNT_CIRCLE,
-        icon_size=30,
-        tooltip="Acceder/Ver perfil",
-        on_click=lambda e: page.go("/login"), # Siempre lleva al login por ahora
+    def logout_user(e):
+        global LOGGED_IN_USER
+        LOGGED_IN_USER = None
+        username_email_input.value = ""
+        password_input.value = ""
+        login_message_text.value = "Sesión cerrada."
+        login_message_text.color = ft.Colors.BLACK54
+        page.update()
+        page.go("/login") # Redirigir al login después de cerrar sesión
+
+    # Componente del Footer (creado una vez para reutilizarlo)
+    footer_text_widget = ft.Container(
+        content=ft.Row(
+            [
+                ft.Text("HECHO CON", color=ft.Colors.ORANGE_700, size=12, weight=ft.FontWeight.BOLD),
+                ft.Icon(name=ft.Icons.FAVORITE, color=ft.Colors.ORANGE_700, size=12), # Corazón
+                ft.Text("LA TRIBU DE LOS LIBRES", color=ft.Colors.ORANGE_700, size=12, weight=ft.FontWeight.BOLD),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER, # Centrar el contenido del Row
+            spacing=3, # Espacio entre los elementos
+        ),
+        alignment=ft.alignment.bottom_center, # Alinear el contenedor al fondo y al centro
+        padding=ft.padding.only(bottom=10), # Pequeño padding desde el borde inferior
+        # NO expand=True aquí. Se manejará en el Column que lo contiene.
     )
+
 
     # --- Vistas ---
 
     # 1. Home View
     def home_view():
+        app_bar_actions = []
+        if LOGGED_IN_USER:
+            app_bar_actions.append(ft.Text(f"{LOGGED_IN_USER}", color=ft.Colors.WHITE, size=16, weight=ft.FontWeight.BOLD))
+            app_bar_actions.append(
+                ft.IconButton(
+                    icon=ft.Icons.LOGOUT,
+                    icon_color=ft.Colors.WHITE,
+                    icon_size=24,
+                    tooltip="Cerrar Sesión",
+                    on_click=logout_user,
+                )
+            )
+        else:
+            app_bar_actions.append(
+                ft.IconButton(
+                    icon=ft.Icons.ACCOUNT_CIRCLE,
+                    icon_size=30,
+                    tooltip="Acceder/Iniciar Sesión",
+                    on_click=lambda e: page.go("/login"),
+                )
+            )
+
         return ft.View(
             "/home",
             [
                 ft.AppBar(
-                    title=ft.Text(""), # Título vacío para una barra más limpia
+                    title=ft.Text(""),
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
-                    actions=[app_bar_user_icon]
+                    actions=app_bar_actions
                 ),
-                ft.Column(
+                ft.Column( # Contenedor principal de la vista Home
                     [
-                        # ELIMINADO: ft.Text(f"¡Hola, {LOGGED_IN_USER if LOGGED_IN_USER else 'Invitado'}!", size=30, weight=ft.FontWeight.BOLD),
-                        # ELIMINADO: ft.Text("Esta es la página de inicio.", size=16),
-                        # ELIMINADO: ft.ElevatedButton("Ir a Login", on_click=lambda e: page.go("/login"), visible=LOGGED_IN_USER is None),
-                        ft.FilledButton("Cerrar Sesión", on_click=logout_user,
-                                        visible=LOGGED_IN_USER is not None, # Mostrar si está logueado
-                                        style=ft.ButtonStyle(bgcolor=ft.Colors.RED_500)),
+                        ft.Container(expand=True), # Este Container "empuja" el contenido hacia arriba y el footer hacia abajo
+                        footer_text_widget, # El footer
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    expand=True
+                    # Eliminado vertical_alignment de Column
+                    expand=True # La columna ocupa todo el espacio vertical disponible
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
@@ -141,7 +178,6 @@ def main(page: ft.Page):
             LOGGED_IN_USER = user_name
             login_message_text.value = "Inicio de sesión exitoso!"
             login_message_text.color = ft.Colors.GREEN_500
-            # Limpiar campos después de un login exitoso
             username_email_input.value = ""
             password_input.value = ""
             page.update()
@@ -150,17 +186,6 @@ def main(page: ft.Page):
             login_message_text.value = "Usuario o contraseña incorrectos."
             login_message_text.color = ft.Colors.RED_500
             page.update()
-
-    def logout_user(e):
-        global LOGGED_IN_USER
-        LOGGED_IN_USER = None
-        username_email_input.value = ""
-        password_input.value = ""
-        login_message_text.value = "Sesión cerrada."
-        login_message_text.color = ft.Colors.BLACK54
-        page.update()
-        page.go("/login") # Redirigir al login después de cerrar sesión
-
 
     def login_view():
         return ft.View(
@@ -173,73 +198,47 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home"))
                 ),
-                ft.Column(
+                ft.Column( # Contenedor principal de la vista Login
                     [
-                        ft.Text("Inicia Sesión en tu Cuenta", size=24, weight=ft.FontWeight.BOLD),
-                        ft.ResponsiveRow(
+                        ft.Container(expand=True), # Espacio flexible arriba para centrar
+                        ft.Column( # Columna que contiene los elementos del formulario
                             [
-                                ft.Column(
-                                    [username_email_input],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                                ft.Text("Inicia Sesión en tu Cuenta", size=24, weight=ft.FontWeight.BOLD),
+                                ft.ResponsiveRow(
+                                    [ft.Column([username_email_input], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
+                                ),
+                                ft.ResponsiveRow(
+                                    [ft.Column([password_input], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
+                                ),
+                                ft.ResponsiveRow(
+                                    [ft.Column([remember_me_checkbox], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
+                                ),
+                                login_message_text,
+                                ft.ResponsiveRow(
+                                    [ft.Column([ft.ElevatedButton("Iniciar Sesión", on_click=login_user, expand=True)], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
+                                ),
+                                ft.ResponsiveRow(
+                                    [ft.Column([ft.TextButton("¿No tienes cuenta? Regístrate aquí.", on_click=lambda e: page.go("/register"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
                                 ),
                             ],
-                            alignment=ft.MainAxisAlignment.CENTER
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=15,
+                            # NO expand=True en esta columna anidada para que no empuje el contenido
                         ),
-                        ft.ResponsiveRow(
-                            [
-                                ft.Column(
-                                    [password_input],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER
-                        ),
-                        ft.ResponsiveRow(
-                            [
-                                ft.Column(
-                                    [remember_me_checkbox],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER
-                        ),
-                        login_message_text,
-                        ft.ResponsiveRow(
-                            [
-                                ft.Column(
-                                    [ft.ElevatedButton("Iniciar Sesión", on_click=login_user, expand=True)],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER
-                        ),
-                        ft.ResponsiveRow(
-                            [
-                                ft.Column(
-                                    [
-                                        ft.TextButton(
-                                            "¿No tienes cuenta? Regístrate aquí.",
-                                            on_click=lambda e: page.go("/register")
-                                        )
-                                    ],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER
-                        ),
+                        ft.Container(expand=True), # Espacio flexible abajo para centrar
+                        footer_text_widget, # El footer
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    expand=True,
-                    spacing=15
+                    # Eliminado vertical_alignment de Column
+                    expand=True, # La columna principal debe expandirse para que el centrado funcione
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
@@ -295,7 +294,6 @@ def main(page: ft.Page):
         if success:
             register_message_text.value = "Registro exitoso. ¡Ahora puedes iniciar sesión!"
             register_message_text.color = ft.Colors.GREEN_500
-            # Limpiar campos
             reg_nombre_input.value = ""
             reg_p_apellido_input.value = ""
             reg_s_apellido_input.value = ""
@@ -323,53 +321,45 @@ def main(page: ft.Page):
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/login"))
                 ),
-                ft.Column(
+                ft.Column( # Contenedor principal de la vista Register
                     [
-                        ft.Text("Crea una Nueva Cuenta", size=24, weight=ft.FontWeight.BOLD),
-                        # ResponsiveRows para centrar y ajustar en móvil
-                        ft.ResponsiveRow([ft.Column([reg_nombre_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_p_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_s_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_usuario_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_mail_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_telefono_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_password_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        ft.ResponsiveRow([ft.Column([reg_confirm_password_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
-                        register_message_text,
-                        ft.ResponsiveRow(
+                        ft.Container(expand=True), # Espacio flexible arriba para centrar
+                        ft.Column( # Columna que contiene los elementos del formulario
                             [
-                                ft.Column(
-                                    [ft.ElevatedButton("Registrarse", on_click=register_user, expand=True)],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                                ft.Text("Crea una Nueva Cuenta", size=24, weight=ft.FontWeight.BOLD),
+                                # ResponsiveRows para centrar y ajustar en móvil
+                                ft.ResponsiveRow([ft.Column([reg_nombre_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_p_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_s_apellido_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_usuario_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_mail_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_telefono_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_password_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                ft.ResponsiveRow([ft.Column([reg_confirm_password_input], col={"xs":12, "md":6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)], alignment=ft.MainAxisAlignment.CENTER),
+                                register_message_text,
+                                ft.ResponsiveRow(
+                                    [ft.Column([ft.ElevatedButton("Registrarse", on_click=register_user, expand=True)], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
+                                ),
+                                ft.ResponsiveRow(
+                                    [ft.Column([ft.TextButton("¿Ya tienes cuenta? Inicia Sesión.", on_click=lambda e: page.go("/login"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    alignment=ft.MainAxisAlignment.CENTER
                                 ),
                             ],
-                            alignment=ft.MainAxisAlignment.CENTER
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=15,
+                            scroll=ft.ScrollMode.ADAPTIVE,
+                            # NO expand=True en esta columna anidada
                         ),
-                        ft.ResponsiveRow(
-                            [
-                                ft.Column(
-                                    [
-                                        ft.TextButton(
-                                            "¿Ya tienes cuenta? Inicia Sesión.",
-                                            on_click=lambda e: page.go("/login")
-                                        )
-                                    ],
-                                    col={"xs": 12, "md": 6},
-                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER
-                        ),
+                        ft.Container(expand=True), # Espacio flexible abajo para centrar
+                        footer_text_widget, # El footer
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    expand=True,
-                    scroll=ft.ScrollMode.ADAPTIVE,
-                    spacing=15
+                    # Eliminado vertical_alignment de Column
+                    expand=True, # La columna principal debe expandirse para que el centrado funcione
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye los elementos (AppBar, Column principal) en el View
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
