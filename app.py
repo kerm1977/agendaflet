@@ -289,14 +289,14 @@ def main(page: ft.Page):
     def logout_user(e):
         global LOGGED_IN_USER
         LOGGED_IN_USER = None
-        username_email_input.value = ""
-        password_input.value = ""
+        # username_email_input.value = "" # No borrar el valor para mantenerlo pre-rellenado
+        password_input.value = "" # Siempre borrar la contraseña por seguridad
         login_message_text.value = "Sesión cerrada."
         login_message_text.color = ft.Colors.BLACK54
         
-        ### CAMBIO IMPORTANTE: Eliminar de la DB al cerrar sesión
         print("DEBUG: Deseleccionando 'Recordar contraseña' y eliminando de DB al cerrar sesión.")
-        delete_setting_db("saved_username_email") 
+        # ### CAMBIO IMPORTANTE: Ya NO eliminamos 'saved_username_email' para que persista
+        # delete_setting_db("saved_username_email") 
         set_setting_db("remember_me_checkbox", "False") # Asegurarse de que el estado del checkbox también se guarde como False
         remember_me_checkbox.value = False 
         page.update() 
@@ -451,7 +451,8 @@ def main(page: ft.Page):
                 print(f"DEBUG: '{identifier}' y 'True' guardados en DB.")
             else:
                 # Si el checkbox no está marcado, eliminamos el usuario guardado y marcamos el checkbox como False
-                delete_setting_db("saved_username_email")
+                # ### CAMBIO IMPORTANTE: Ya NO eliminamos 'saved_username_email' aquí tampoco
+                # delete_setting_db("saved_username_email")
                 set_setting_db("remember_me_checkbox", "False") # Guardar como string "False"
                 print("DEBUG: Valor eliminado de DB (checkbox desmarcado).")
 
