@@ -444,21 +444,22 @@ def main(page: ft.Page):
     page.window_height = 700
 
     # Eliminar el archivo de la base de datos si existe para forzar la recreación del esquema
-    if os.path.exists(DATABASE_NAME):
-        try:
-            os.remove(DATABASE_NAME)
-            print(f"DEBUG: Archivo de base de datos '{DATABASE_NAME}' eliminado para forzar la recreación del esquema.")
-            time.sleep(0.1) # Pequeña pausa para asegurar que el SO libere el archivo
-        except OSError as e:
-            print(f"ERROR: No se pudo eliminar el archivo '{DATABASE_NAME}'. Puede que esté en uso. Error: {e}")
-            # Considerar mostrar un mensaje al usuario o salir de la aplicación si esto es crítico
-            page.snack_bar = ft.SnackBar(
-                ft.Text(f"Error: No se pudo eliminar la base de datos. Por favor, cierra la aplicación y vuelve a intentarlo. ({e})", color=ft.Colors.WHITE),
-                bgcolor=ft.Colors.RED_700,
-                open=True
-            )
-            page.update()
-            return # Salir de main si no se puede eliminar la DB
+    # Comenta o elimina esta línea para preservar los datos entre ejecuciones
+    # if os.path.exists(DATABASE_NAME):
+    #     try:
+    #         os.remove(DATABASE_NAME)
+    #         print(f"DEBUG: Archivo de base de datos '{DATABASE_NAME}' eliminado para forzar la recreación del esquema.")
+    #         time.sleep(0.1) # Pequeña pausa para asegurar que el SO libere el archivo
+    #     except OSError as e:
+    #         print(f"ERROR: No se pudo eliminar el archivo '{DATABASE_NAME}'. Puede que esté en uso. Error: {e}")
+    #         # Considerar mostrar un mensaje al usuario o salir de la aplicación si esto es crítico
+    #         page.snack_bar = ft.SnackBar(
+    #             ft.Text(f"Error: No se pudo eliminar la base de datos. Por favor, cierra la aplicación y vuelve a intentarlo. ({e})", color=ft.Colors.WHITE),
+    #             bgcolor=ft.Colors.RED_700,
+    #             open=True
+    #         )
+    #         page.update()
+    #         return # Salir de main si no se puede eliminar la DB
 
     init_db()
 
