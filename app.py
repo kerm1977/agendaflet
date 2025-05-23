@@ -4,11 +4,12 @@ import hashlib
 import re
 import time 
 import datetime 
-import os # Importar el módulo os
+import os 
 
 DATABASE_NAME = "users.db"
 LOGGED_IN_USER = None 
 
+# --- CHOICES PARA DROPDOWNS ---
 ACTIVIDADES_CHOICES = [
     ft.dropdown.Option(''), 
     ft.dropdown.Option('La Tribu'),
@@ -84,9 +85,9 @@ SINPE_CHOICES = [
     ft.dropdown.Option('Jenny Ceciliano Cordoba-87984232')
 ]
 
-
+# --- FUNCIONES DE BASE DE DATOS ---
 def init_db():
-    conn = None # Initialize conn to ensure it's always defined
+    conn = None 
     try:
         conn = sqlite3.connect(DATABASE_NAME)
         cursor = conn.cursor()
@@ -123,7 +124,7 @@ def init_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cotizaciones (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                numero_cotizacion TEXT UNIQUE NOT NULL, -- Nuevo campo para el número de cotización
+                numero_cotizacion TEXT UNIQUE NOT NULL, 
                 quien_hace_cotizacion TEXT,
                 fecha_automatica TEXT,
                 dirigido_a TEXT,
@@ -143,7 +144,6 @@ def init_db():
             )
         ''')
         conn.commit()
-        # Inicializar el contador de cotizaciones si no existe
         cursor.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", ("last_quotation_number", "149"))
         conn.commit()
         print("DEBUG: Base de datos inicializada/actualizada correctamente.")
@@ -329,7 +329,7 @@ def peek_next_quotation_number_db():
     result = cursor.fetchone()
     conn.close()
     current_num = int(result[0]) if result and result[0].isdigit() else 149
-    return f"{current_num + 1:06d}" # Devuelve el siguiente número sin incrementar
+    return f"{current_num + 1:06d}" 
 
 def increment_and_get_quotation_number_db():
     """
@@ -341,14 +341,13 @@ def increment_and_get_quotation_number_db():
     cursor.execute("SELECT value FROM app_settings WHERE key = ?", ("last_quotation_number",))
     current_num_str = cursor.fetchone()
     
-    # Si no se encuentra, inicializa en 149 para que el primer número sea 150
     current_num = int(current_num_str[0]) if current_num_str and current_num_str[0].isdigit() else 149 
     next_num = current_num + 1
     
     cursor.execute("UPDATE app_settings SET value = ? WHERE key = ?", (str(next_num), "last_quotation_number"))
     conn.commit()
     conn.close()
-    return f"{next_num:06d}" # Formato de 6 dígitos con ceros a la izquierda
+    return f"{next_num:06d}" 
 
 def add_cotizacion_db(cotizacion_data):
     conn = sqlite3.connect(DATABASE_NAME)
@@ -357,12 +356,12 @@ def add_cotizacion_db(cotizacion_data):
     try:
         cursor.execute('''
             INSERT INTO cotizaciones (
-                numero_cotizacion, -- Se añadió el número de cotización aquí
+                numero_cotizacion, 
                 quien_hace_cotizacion, fecha_automatica, dirigido_a, actividad,
                 nombre_item, fecha_actividad, cantidad, precio, sinpe, nota
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            cotizacion_data['numero_cotizacion'], # Y aquí en los valores
+            cotizacion_data['numero_cotizacion'], 
             cotizacion_data['quien_hace_cotizacion'],
             cotizacion_data['fecha_automatica'],
             cotizacion_data['dirigido_a'],
@@ -380,7 +379,7 @@ def add_cotizacion_db(cotizacion_data):
     except Exception as e:
         print(f"ERROR: Error al guardar cotización: {e}")
         import traceback
-        traceback.print_exc() # Esto imprimirá el rastro completo del error
+        traceback.print_exc() 
         return False, f"Error al guardar cotización: {e}"
     finally:
         conn.close()
@@ -423,12 +422,12 @@ def update_cotizacion_db(cotizacion_id, cotizacion_data):
     try:
         cursor.execute('''
             UPDATE cotizaciones SET
-                numero_cotizacion = ?, -- Se añadió el número de cotización aquí
+                numero_cotizacion = ?, 
                 quien_hace_cotizacion = ?, fecha_automatica = ?, dirigido_a = ?, actividad = ?,
                 nombre_item = ?, fecha_actividad = ?, cantidad = ?, precio = ?, sinpe = ?, nota = ?
             WHERE id = ?
         ''', (
-            cotizacion_data['numero_cotizacion'], # Y aquí en los valores
+            cotizacion_data['numero_cotizacion'], 
             cotizacion_data['quien_hace_cotizacion'],
             cotizacion_data['fecha_automatica'],
             cotizacion_data['dirigido_a'],
@@ -448,7 +447,7 @@ def update_cotizacion_db(cotizacion_id, cotizacion_data):
     finally:
         conn.close()
 
-
+# --- FUNCIONES DE LA APLICACIÓN FLET ---
 def main(page: ft.Page):
     global LOGGED_IN_USER 
 
@@ -456,26 +455,10 @@ def main(page: ft.Page):
     page.window_width = 400 
     page.window_height = 700
 
-    # Eliminar el archivo de la base de datos si existe para forzar la recreación del esquema
-    # Comenta o elimina esta línea para preservar los datos entre ejecuciones
-    # if os.path.exists(DATABASE_NAME):
-    #     try:
-    #         os.remove(DATABASE_NAME)
-    #         print(f"DEBUG: Archivo de base de datos '{DATABASE_NAME}' eliminado para forzar la recreación del esquema.")
-    #         time.sleep(0.1) # Pequeña pausa para asegurar que el SO libere el archivo
-    #     except OSError as e:
-    #         print(f"ERROR: No se pudo eliminar el archivo '{DATABASE_NAME}'. Puede que esté en uso. Error: {e}")
-    #         # Considerar mostrar un mensaje al usuario o salir de la aplicación si esto es crítico
-    #         page.snack_bar = ft.SnackBar(
-    #             ft.Text(f"Error: No se pudo eliminar la base de datos. Por favor, cierra la aplicación y vuelve a intentarlo. ({e})", color=ft.Colors.WHITE),
-    #             bgcolor=ft.Colors.RED_700,
-    #             open=True
-    #         )
-    #         page.update()
-    #         return # Salir de main si no se puede eliminar la DB
-
+    # Inicializar la base de datos al inicio de la aplicación
     init_db()
 
+    # Diálogo de confirmación global (para eliminaciones, etc.)
     confirm_dialog_global = ft.AlertDialog(
         modal=True,
         title=ft.Text("Confirmar Eliminación"),
@@ -488,6 +471,7 @@ def main(page: ft.Page):
     )
     page.overlay.append(confirm_dialog_global) 
 
+    # --- Funciones de Autenticación y Sesión ---
     def logout_user(e):
         global LOGGED_IN_USER
         LOGGED_IN_USER = None
@@ -501,6 +485,7 @@ def main(page: ft.Page):
         page.update() 
         page.go("/login") 
 
+    # Pie de página común
     footer_text_widget = ft.Container(
         content=ft.Row(
             [
@@ -515,8 +500,8 @@ def main(page: ft.Page):
         padding=ft.padding.only(bottom=10), 
     )
 
-    # Controles para la nueva sección de Cotización (ahora globales para ser usados en la nueva vista)
-    cotizacion_numero_input = ft.TextField( # Nuevo campo para el número de cotización
+    # --- Controles de Formulario de Cotización (Globales para fácil acceso) ---
+    cotizacion_numero_input = ft.TextField( 
         label="Número de Cotización",
         read_only=True,
         expand=True,
@@ -528,13 +513,13 @@ def main(page: ft.Page):
     )
     cotizacion_fecha_automatica_input = ft.TextField(
         label="Fecha automática",
-        value=datetime.date.today().strftime('%Y-%m-%d'), # Fecha actual
+        value=datetime.date.today().strftime('%Y-%m-%d'), 
         read_only=True,
         expand=True,
     )
     cotizacion_dirigido_a_input = ft.TextField(
         label="Dirigido al NOMBRE DE USUARIO",
-        value="", # Se rellena al cargar la vista
+        value="", 
         expand=True,
     )
     cotizacion_actividad_dropdown = ft.Dropdown(
@@ -577,13 +562,13 @@ def main(page: ft.Page):
     )
 
     cotizacion_cantidad_input = ft.TextField(
-        label="Cantidad", # Etiqueta cambiada
+        label="Cantidad", 
         input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*$", replacement_string=""),
         keyboard_type=ft.KeyboardType.NUMBER,
         expand=True,
     )
     cotizacion_precio_input = ft.TextField(
-        label="Costo", # Etiqueta cambiada
+        label="Costo", 
         input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*\.?[0-9]*$", replacement_string=""),
         keyboard_type=ft.KeyboardType.NUMBER,
         expand=True,
@@ -604,7 +589,6 @@ def main(page: ft.Page):
     def save_cotizacion(e):
         print("DEBUG: Iniciando save_cotizacion...")
         
-        # Lista de campos requeridos para la cotización
         required_fields = {
             "Quien hace cotización": cotizacion_quien_hace_dropdown.value,
             "Dirigido al NOMBRE DE USUARIO": cotizacion_dirigido_a_input.value,
@@ -641,11 +625,10 @@ def main(page: ft.Page):
             print(f"ERROR: Error de conversión de tipo: {ve}")
             return
 
-        # Obtener el número de cotización real solo al guardar
         quotation_number_to_save = increment_and_get_quotation_number_db()
 
         cotizacion_data = {
-            'numero_cotizacion': quotation_number_to_save, # Se obtiene el número de cotización del campo
+            'numero_cotizacion': quotation_number_to_save, 
             'quien_hace_cotizacion': cotizacion_quien_hace_dropdown.value,
             'fecha_automatica': cotizacion_fecha_automatica_input.value,
             'dirigido_a': cotizacion_dirigido_a_input.value,
@@ -679,12 +662,14 @@ def main(page: ft.Page):
             cotizacion_precio_input.value = ''
             cotizacion_sinpe_dropdown.value = ''
             cotizacion_nota_input.value = ''
-            # Actualizar el número de cotización para la próxima vez que se abra el formulario
-            cotizacion_numero_input.value = peek_next_quotation_number_db() # Mostrar el siguiente número provisional
+            cotizacion_numero_input.value = peek_next_quotation_number_db() 
             page.update()
-            page.go("/quotations_list") # Navegar a la lista de cotizaciones después de guardar
+            page.go("/quotations_list") 
         print("DEBUG: Finalizando save_cotizacion.")
 
+    # --- VISTAS DE LA APLICACIÓN ---
+
+    # Vista de Inicio (Home)
     def home_view():
         app_bar_actions = []
         if LOGGED_IN_USER:
@@ -698,16 +683,6 @@ def main(page: ft.Page):
                     on_click=logout_user,
                 )
             )
-            # El botón "Ver Contactos" se ha movido a una tarjeta en el cuerpo de la vista
-            # app_bar_actions.append(
-            #     ft.IconButton(
-            #         icon=ft.Icons.CONTACTS, 
-            #         icon_color=ft.Colors.WHITE,
-            #         icon_size=24,
-            #         tooltip="Ver Contactos",
-            #         on_click=lambda e: page.go("/contacts_list"), 
-            #     )
-            # )
             app_bar_actions.append(
                 ft.IconButton(
                     icon=ft.Icons.RECEIPT, 
@@ -739,9 +714,8 @@ def main(page: ft.Page):
                 ),
                 ft.Column( 
                     [
-                        ft.Container(height=30), # Espacio desde app bar
+                        ft.Container(height=30), 
 
-                        # Tarjeta de Agenda
                         ft.Card(
                             elevation=2,
                             shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
@@ -758,9 +732,8 @@ def main(page: ft.Page):
                                 on_click=lambda e: page.go("/agenda")
                             )
                         ), 
-                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), # Espacio entre tarjetas
+                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), 
 
-                        # Tarjeta de Cotización
                         ft.Card(
                             elevation=2,
                             shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
@@ -768,18 +741,17 @@ def main(page: ft.Page):
                                 padding=ft.padding.symmetric(vertical=15, horizontal=15),
                                 content=ft.Row(
                                     [
-                                        ft.Text("Cotización", size=16, weight=ft.FontWeight.W_500, expand=True), 
+                                        ft.Text("Ver Cotizaciones", size=16, weight=ft.FontWeight.W_500, expand=True), 
                                         ft.Icon(name=ft.Icons.KEYBOARD_ARROW_RIGHT, color=ft.Colors.GREY_500),
                                     ],
                                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                     vertical_alignment=ft.CrossAxisAlignment.CENTER
                                 ),
-                                on_click=lambda e: page.go("/cotizacion_form")
+                                on_click=lambda e: page.go("/quotations_list") 
                             )
                         ),
-                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), # Espacio entre tarjetas
+                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), 
 
-                        # Nueva Tarjeta de Ver Contactos
                         ft.Card(
                             elevation=2,
                             shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
@@ -809,11 +781,11 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # Vista de Formulario de Cotización
     def cotizacion_form_view():
-        # Actualizar el valor de 'Dirigido a' cada vez que se carga la vista
         cotizacion_dirigido_a_input.value = LOGGED_IN_USER if LOGGED_IN_USER else ""
-        cotizacion_fecha_automatica_input.value = datetime.date.today().strftime('%Y-%m-%d') # Asegurar fecha actual al cargar
-        cotizacion_numero_input.value = peek_next_quotation_number_db() # Obtener el siguiente número de cotización (sin incrementar en DB)
+        cotizacion_fecha_automatica_input.value = datetime.date.today().strftime('%Y-%m-%d') 
+        cotizacion_numero_input.value = peek_next_quotation_number_db() 
 
         return ft.View(
             "/cotizacion_form",
@@ -823,14 +795,14 @@ def main(page: ft.Page):
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
-                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home"))
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/quotations_list")) 
                 ),
                 ft.Column( 
                     [
                         ft.Text("Crear Nueva Cotización", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK54),
                         ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
 
-                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), # Mostrar el número de cotización
+                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), 
                         ft.ResponsiveRow([ft.Column([cotizacion_quien_hace_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_fecha_automatica_input], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_dirigido_a_input], col={"xs": 12})]),
@@ -853,7 +825,7 @@ def main(page: ft.Page):
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     spacing=10,
                     width=350,
-                    scroll=ft.ScrollMode.ADAPTIVE, # Mantener el modo de desplazamiento en la columna
+                    scroll=ft.ScrollMode.ADAPTIVE, 
                     expand=True,
                 ),
                 footer_text_widget,
@@ -862,6 +834,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # Vista de Agenda (Placeholder)
     def agenda_view():
         return ft.View(
             "/agenda",
@@ -889,8 +862,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-
-    # Definimos los TextField y Checkbox ANTES de la función login_view
+    # --- Controles de Autenticación (Globales) ---
     username_email_input = ft.TextField(
         label="Usuario o Email",
         hint_text="Ingresa tu usuario o correo",
@@ -905,6 +877,7 @@ def main(page: ft.Page):
     remember_me_checkbox = ft.Checkbox(label="Recordar contraseña")
     login_message_text = ft.Text("", color=ft.Colors.RED_500)
 
+    # Lógica de auto-inicio de sesión
     saved_username_email_from_db = get_setting_db("saved_username_email")
     remember_me_checked_from_db = get_setting_db("remember_me_checkbox") 
     
@@ -931,7 +904,6 @@ def main(page: ft.Page):
         username_email_input.value = "" 
         remember_me_checkbox.value = False 
         print("DEBUG: No se encontró un valor guardado o checkbox desmarcado en DB.")
-
 
     def login_user(e):
         global LOGGED_IN_USER
@@ -970,6 +942,7 @@ def main(page: ft.Page):
             login_message_text.color = ft.Colors.RED_500
             page.update()
 
+    # Vista de Inicio de Sesión
     def login_view():
         return ft.View(
             "/login",
@@ -1023,6 +996,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Controles de Registro (Globales) ---
     reg_nombre_input = ft.TextField(label="Nombre", expand=True)
     reg_p_apellido_input = ft.TextField(label="Primer Apellido", expand=True)
     reg_s_apellido_input = ft.TextField(label="Segundo Apellido (Opcional)", expand=True)
@@ -1088,6 +1062,7 @@ def main(page: ft.Page):
             register_message_text.color = ft.Colors.RED_500
             page.update()
 
+    # Vista de Registro
     def register_view():
         return ft.View(
             "/register",
@@ -1138,6 +1113,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Controles de Contacto (Globales) ---
     contact_nombre_input = ft.TextField(label="Nombre", expand=True)
     contact_primer_apellido_input = ft.TextField(label="Primer Apellido", expand=True)
     contact_segundo_apellido_input = ft.TextField(label="Segundo Apellido (Opcional)", expand=True)
@@ -1167,7 +1143,6 @@ def main(page: ft.Page):
     )
     add_contact_message_text = ft.Text("", color=ft.Colors.RED_500)
     edit_contact_message_text = ft.Text("", color=ft.Colors.RED_500)
-
 
     def save_contact(e):
         if not all([contact_nombre_input.value, contact_primer_apellido_input.value]):
@@ -1222,7 +1197,9 @@ def main(page: ft.Page):
             add_contact_message_text.color = ft.Colors.RED_500
             page.update()
 
+    # Vista de Agregar Contacto
     def add_contact_view():
+        # Limpiar campos al cargar la vista
         contact_nombre_input.value = ""
         contact_primer_apellido_input.value = ""
         contact_segundo_apellido_input.value = ""
@@ -1287,6 +1264,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Controles de Lista de Contactos ---
     search_input = ft.TextField(
         label="Buscar contacto",
         hint_text="Buscar por nombre, teléfono, móvil, actividad o participación",
@@ -1364,6 +1342,7 @@ def main(page: ft.Page):
         contacts_list_container.controls = contact_items
         page.update()
 
+    # Vista de Lista de Contactos
     def contacts_list_view():
         update_contacts_list("") 
         return ft.View(
@@ -1375,15 +1354,6 @@ def main(page: ft.Page):
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home")),
-                    actions=[
-                        ft.IconButton(
-                            icon=ft.Icons.PERSON_ADD,
-                            icon_color=ft.Colors.WHITE,
-                            icon_size=24,
-                            tooltip="Agregar Nuevo Contacto",
-                            on_click=lambda e: page.go("/add_contact"),
-                        )
-                    ]
                 ),
                 ft.Column(
                     [
@@ -1402,6 +1372,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Controles de Lista de Cotizaciones ---
     quotation_search_input = ft.TextField(
         label="Buscar cotización",
         hint_text="Buscar por actividad, nombre de item o dirigido a",
@@ -1424,7 +1395,7 @@ def main(page: ft.Page):
         
         query = """
             SELECT * FROM cotizaciones WHERE
-            LOWER(numero_cotizacion) LIKE ? OR -- Incluir búsqueda por número de cotización
+            LOWER(numero_cotizacion) LIKE ? OR 
             LOWER(actividad) LIKE ? OR
             LOWER(nombre_item) LIKE ? OR
             LOWER(dirigido_a) LIKE ?
@@ -1445,11 +1416,11 @@ def main(page: ft.Page):
         else:
             for cotizacion in cotizaciones:
                 cotizacion_id = cotizacion[0]
-                numero_cotizacion = cotizacion[1] # Nuevo índice
-                dirigido_a = cotizacion[3] # Índice ajustado
-                actividad = cotizacion[4] # Índice ajustado
-                nombre_item = cotizacion[5] # Índice ajustado
-                fecha_actividad = cotizacion[6] # Índice ajustado
+                numero_cotizacion = cotizacion[1] 
+                dirigido_a = cotizacion[3] 
+                actividad = cotizacion[4] 
+                nombre_item = cotizacion[5] 
+                fecha_actividad = cotizacion[6] 
 
                 quotation_items.append(
                     ft.Card(
@@ -1457,7 +1428,7 @@ def main(page: ft.Page):
                             padding=10,
                             content=ft.Column(
                                 [
-                                    ft.Text(f"Cotización #: {numero_cotizacion}", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800), # Mostrar número
+                                    ft.Text(f"Cotización #: {numero_cotizacion}", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800), 
                                     ft.Text(f"Para: {dirigido_a}", size=16, weight=ft.FontWeight.BOLD),
                                     ft.Text(f"Actividad: {actividad}", size=14, color=ft.Colors.GREY_700),
                                     ft.Text(f"Item: {nombre_item}", size=14, color=ft.Colors.GREY_700),
@@ -1478,7 +1449,9 @@ def main(page: ft.Page):
         quotations_list_container.controls = quotation_items
         page.update()
 
+    # Vista de Lista de Cotizaciones
     def quotations_list_view():
+        print("DEBUG: Entrando a quotations_list_view()") # Debugging
         update_quotations_list("")
         return ft.View(
             "/quotations_list",
@@ -1497,6 +1470,33 @@ def main(page: ft.Page):
                             padding=ft.padding.symmetric(horizontal=10, vertical=5)
                         ),
                         quotations_list_container,
+                        # Nuevo botón para crear cotización
+                        ft.Container(height=20), # Espacio
+                        ft.ResponsiveRow(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.ElevatedButton(
+                                            "Crear Nueva Cotización",
+                                            icon=ft.Icons.ADD,
+                                            on_click=lambda e: page.go("/cotizacion_form"),
+                                            bgcolor=ft.Colors.ORANGE_700,
+                                            color=ft.Colors.WHITE,
+                                            expand=True,
+                                            style=ft.ButtonStyle(
+                                                shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                                                padding=ft.padding.symmetric(vertical=15)
+                                            )
+                                        )
+                                    ],
+                                    col={"xs": 12},
+                                    alignment=ft.CrossAxisAlignment.CENTER
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=10
+                        ),
+                        ft.Container(height=20), # Espacio
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -1507,10 +1507,12 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Funciones de Diálogo ---
     def close_confirm_dialog(e_dialog): 
         confirm_dialog_global.open = False
         page.update()
 
+    # --- Vistas de Detalle y Edición de Contacto ---
     def contact_detail_view(contact_id):
         contact = get_contact_by_id_db(contact_id)
 
@@ -1766,6 +1768,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # --- Vistas de Detalle y Edición de Cotización ---
     def quotation_detail_view(quotation_id):
         cotizacion = get_cotizacion_by_id_db(quotation_id)
 
@@ -1794,7 +1797,6 @@ def main(page: ft.Page):
                 ]
             )
         
-        # Ajustar los índices debido al nuevo campo numero_cotizacion
         details = [
             ft.Text(f"Número de Cotización: {cotizacion[1]}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
             ft.Text(f"Quien hace: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87),
@@ -1803,8 +1805,8 @@ def main(page: ft.Page):
             ft.Text(f"Actividad: {cotizacion[5]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Nombre del Item: {cotizacion[6]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Fecha de Actividad: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Cantidad: {cotizacion[8]}", size=14, color=ft.Colors.BLACK87), # Etiqueta ajustada
-            ft.Text(f"Costo: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87), # Etiqueta ajustada
+            ft.Text(f"Cantidad: {cotizacion[8]}", size=14, color=ft.Colors.BLACK87), 
+            ft.Text(f"Costo: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87), 
             ft.Text(f"Sinpe: {cotizacion[10]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Nota: {cotizacion[11]}", size=14, color=ft.Colors.BLACK87),
         ]
@@ -1834,7 +1836,7 @@ def main(page: ft.Page):
             f"/quotation_detail/{quotation_id}",
             [
                 ft.AppBar(
-                    title=ft.Text(f"Detalle Cotización: {cotizacion[4]}"), # Ajustar título
+                    title=ft.Text(f"Detalle Cotización: {cotizacion[4]}"), 
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
@@ -1897,8 +1899,7 @@ def main(page: ft.Page):
                 ]
             )
 
-        # Ajustar los índices al cargar los valores para edición
-        cotizacion_numero_input.value = cotizacion[1] if cotizacion[1] else '' # Nuevo campo
+        cotizacion_numero_input.value = cotizacion[1] if cotizacion[1] else '' 
         cotizacion_quien_hace_dropdown.value = cotizacion[2] if cotizacion[2] else ''
         cotizacion_fecha_automatica_input.value = cotizacion[3] if cotizacion[3] else ''
         cotizacion_dirigido_a_input.value = cotizacion[4] if cotizacion[4] else ''
@@ -1938,7 +1939,7 @@ def main(page: ft.Page):
                 return
 
             updated_data = {
-                'numero_cotizacion': cotizacion_numero_input.value, # Se mantiene el número de cotización existente
+                'numero_cotizacion': cotizacion_numero_input.value, 
                 'quien_hace_cotizacion': cotizacion_quien_hace_dropdown.value,
                 'fecha_automatica': cotizacion_fecha_automatica_input.value,
                 'dirigido_a': cotizacion_dirigido_a_input.value,
@@ -1967,7 +1968,7 @@ def main(page: ft.Page):
             f"/edit_quotation/{quotation_id}",
             [
                 ft.AppBar(
-                    title=ft.Text(f"Editar Cotización: {cotizacion[4]}"), # Ajustar título
+                    title=ft.Text(f"Editar Cotización: {cotizacion[4]}"), 
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
@@ -1976,7 +1977,7 @@ def main(page: ft.Page):
                 ft.Column(
                     [
                         ft.Text("Modificar Datos de la Cotización", size=24, weight=ft.FontWeight.BOLD),
-                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), # Mostrar número de cotización
+                        ft.ResponsiveRow([ft.Column([cotizacion_numero_input], col={"xs": 12})]), 
                         ft.ResponsiveRow([ft.Column([cotizacion_quien_hace_dropdown], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_fecha_automatica_input], col={"xs": 12})]),
                         ft.ResponsiveRow([ft.Column([cotizacion_dirigido_a_input], col={"xs": 12})]),
@@ -2007,9 +2008,12 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-
+    # --- Manejo de Rutas ---
     def route_change(route):
         page.views.clear()
+        # Restablecer el FAB para todas las vistas primero
+        page.floating_action_button = None 
+        
         if page.route == "/home":
             page.views.append(home_view())
         elif page.route == "/login":
@@ -2020,6 +2024,13 @@ def main(page: ft.Page):
             page.views.append(add_contact_view())
         elif page.route == "/contacts_list":
             page.views.append(contacts_list_view())
+            # Configurar FAB para Agregar Contacto
+            page.floating_action_button = ft.FloatingActionButton(
+                icon=ft.Icons.ADD, 
+                on_click=lambda e: page.go("/add_contact"),
+                bgcolor=ft.Colors.ORANGE_700,
+                tooltip="Agregar Nuevo Contacto"
+            )
         elif page.route.startswith("/contact_detail/"):
             parts = page.route.split("/")
             try:
@@ -2053,7 +2064,15 @@ def main(page: ft.Page):
                     )
                 )
         elif page.route == "/quotations_list":
+            print("DEBUG: La ruta actual es /quotations_list. Configurando FAB para Nueva Cotización.") # Debugging
             page.views.append(quotations_list_view())
+            # Se mantiene el FAB, pero ahora hay un botón adicional dentro de la vista.
+            page.floating_action_button = ft.FloatingActionButton(
+                icon=ft.Icons.ADD,
+                on_click=lambda e: page.go("/cotizacion_form"), 
+                bgcolor=ft.Colors.ORANGE_700,
+                tooltip="Crear Nueva Cotización (FAB)" # Cambiado el tooltip para diferenciar
+            )
         elif page.route.startswith("/quotation_detail/"):
             parts = page.route.split("/")
             try:
@@ -2086,7 +2105,6 @@ def main(page: ft.Page):
                         ]
                     )
                 )
-        # Nuevas rutas
         elif page.route == "/agenda":
             page.views.append(agenda_view())
         elif page.route == "/cotizacion_form":
@@ -2103,7 +2121,7 @@ def main(page: ft.Page):
     page.on_route_change = route_change
     page.on_view_pop = view_pop
     
-    # Set initial route based on login status
+    # Establecer la ruta inicial basada en el estado de la sesión
     if LOGGED_IN_USER:
         page.go("/home")
     else:
