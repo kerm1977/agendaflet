@@ -105,7 +105,7 @@ def get_setting_db(key):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
-    result = conn.cursor().fetchone()
+    result = cursor.fetchone() # Corregido: Usar el cursor que ejecutó la consulta
     conn.close()
     return result[0] if result else None
 
@@ -794,7 +794,6 @@ def main(page: ft.Page):
     contacts_list_container = ft.Column(
         controls=[],
         expand=True,
-        # padding=10, # Eliminado el argumento padding
         spacing=10,
         scroll=ft.ScrollMode.ADAPTIVE
     )
