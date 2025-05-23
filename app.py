@@ -168,10 +168,20 @@ def add_contact_db(contact_data):
 def get_all_contacts_db():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
+    # Asegúrate de seleccionar todas las columnas en el orden correcto
+    # (id, nombre, primer_apellido, segundo_apellido, telefono, movil, email, direccion, actividad, nota, empresa, sitio_web, capacidad_persona, participacion)
     cursor.execute("SELECT * FROM contactos ORDER BY nombre, primer_apellido")
     contacts = cursor.fetchall()
     conn.close()
     return contacts
+
+def get_contact_by_id_db(contact_id):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM contactos WHERE id = ?", (contact_id,))
+    contact = cursor.fetchone()
+    conn.close()
+    return contact
 # --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
 
 
@@ -591,9 +601,9 @@ def main(page: ft.Page):
                             ft.Column([contact_movil_input], col={"xs": 12, "md": 6}),
                         ]),
                         ft.ResponsiveRow([ft.Column([contact_email_input], col={"xs": 12, "md": 6})]),
-                        ft.ResponsiveRow([ft.Column([contact_direccion_input], col={"xs": 12, "md": 12})]),
+                        ft.ResponsiveRow([ft.Column([contact_direccion_input], col={"xs": 12, "md": 12})]), # Dirección puede ser más ancha
                         ft.ResponsiveRow([ft.Column([contact_actividad_dropdown], col={"xs": 12, "md": 6})]),
-                        ft.ResponsiveRow([ft.Column([contact_nota_input], col={"xs": 12, "md": 12})]),
+                        ft.ResponsiveRow([ft.Column([contact_nota_input], col={"xs": 12, "md": 12})]), # Nota también puede ser más ancha
                         ft.ResponsiveRow([
                             ft.Column([contact_empresa_input], col={"xs": 12, "md": 6}),
                             ft.Column([contact_sitio_web_input], col={"xs": 12, "md": 6}),
@@ -622,7 +632,6 @@ def main(page: ft.Page):
     def contacts_list_view():
         contacts = get_all_contacts_db() # Obtener todos los contactos de la DB
 
-        # Crear una lista de ft.Column para cada contacto
         contact_items = []
         if not contacts:
             contact_items.append(
@@ -630,23 +639,12 @@ def main(page: ft.Page):
             )
         else:
             for contact in contacts:
-                # contact es una tupla: (id, nombre, p_apellido, s_apellido, ...)
-                contact_id = contact[0]
+                contact_id = contact[0] # ID del contacto
                 nombre_completo = f"{contact[1]} {contact[2]}" # Nombre y primer apellido
                 if contact[3]: # Segundo apellido
                     nombre_completo += f" {contact[3]}"
                 
-                # Puedes mostrar más detalles aquí si lo deseas
-                contact_details = []
-                if contact[4]: # Telefono
-                    contact_details.append(ft.Text(f"Teléfono: {contact[4]}", size=12, color=ft.Colors.GREY_700))
-                if contact[5]: # Movil
-                    contact_details.append(ft.Text(f"Móvil: {contact[5]}", size=12, color=ft.Colors.GREY_700))
-                if contact[6]: # Email
-                    contact_details.append(ft.Text(f"Email: {contact[6]}", size=12, color=ft.Colors.GREY_700))
-                if contact[8]: # Actividad
-                    contact_details.append(ft.Text(f"Actividad: {contact[8]}", size=12, color=ft.Colors.GREY_700))
-
+                movil_text = f"Móvil: {contact[5]}" if contact[5] else "Móvil: N/A"
 
                 contact_items.append(
                     ft.Card(
@@ -655,13 +653,18 @@ def main(page: ft.Page):
                             content=ft.Column(
                                 [
                                     ft.Text(nombre_completo, size=18, weight=ft.FontWeight.BOLD),
-                                    *contact_details, # Desempaqueta la lista de detalles
-                                    # Aquí podrías añadir botones de Editar o Eliminar
+                                    ft.Text(movil_text, size=14, color=ft.Colors.GREY_700),
+                                    ft.Divider(height=5, color=ft.Colors.GREY_300), # Separador visual
+                                    ft.TextButton(
+                                        "Ver Más",
+                                        on_click=lambda e, cid=contact_id: page.go(f"/contact_detail/{cid}"),
+                                        style=ft.ButtonStyle(color=ft.Colors.ORANGE_600)
+                                    )
                                 ],
                                 spacing=5
                             ),
                         ),
-                        margin=ft.margin.symmetric(vertical=5, horizontal=10) # Margen para separar las tarjetas
+                        margin=ft.margin.symmetric(vertical=5, horizontal=10)
                     )
                 )
 
@@ -676,7 +679,7 @@ def main(page: ft.Page):
                     leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home")),
                     actions=[
                         ft.IconButton(
-                            icon=ft.Icons.PERSON_ADD, # Ícono para añadir nuevo contacto
+                            icon=ft.Icons.PERSON_ADD,
                             icon_color=ft.Colors.WHITE,
                             icon_size=24,
                             tooltip="Agregar Nuevo Contacto",
@@ -684,41 +687,167 @@ def main(page: ft.Page):
                         )
                     ]
                 ),
-                ft.Column( # Contenedor principal de la lista
+                ft.Column(
                     [
-                        ft.ListView( # Usamos ListView para una lista eficiente y con scroll automático
+                        ft.ListView(
                             controls=contact_items,
-                            expand=True, # La ListView ocupa todo el espacio disponible
+                            expand=True,
                             padding=10,
                             spacing=10,
                         ),
-                        footer_text_widget, # El footer
+                        footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True, # La columna principal debe expandirse
+                    expand=True,
                 )
             ],
-            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Distribuye AppBar y Column principal
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
     # --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS - LISTA DE CONTACTOS ---
+
+    # --- NUEVA VISTA: DETALLE DE CONTACTO ---
+    def contact_detail_view(contact_id):
+        contact = get_contact_by_id_db(contact_id) # Obtener el contacto por su ID
+
+        if not contact:
+            # Manejar caso de contacto no encontrado
+            return ft.View(
+                f"/contact_detail/{contact_id}",
+                [
+                    ft.AppBar(
+                        title=ft.Text("Contacto No Encontrado"),
+                        center_title=True,
+                        bgcolor=ft.Colors.ORANGE_700,
+                        color=ft.Colors.WHITE,
+                        leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list"))
+                    ),
+                    ft.Column(
+                        [
+                            ft.Container(expand=True),
+                            ft.Text("El contacto solicitado no pudo ser encontrado.", size=16, color=ft.Colors.RED_500),
+                            ft.Container(expand=True),
+                            footer_text_widget,
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER, # Esto es para el *contenido* de la Column si no hay `expand`
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        expand=True
+                    )
+                ]
+            )
+
+        # Mapeo de índices a nombres para facilitar la lectura
+        # id (0), nombre (1), primer_apellido (2), segundo_apellido (3),
+        # telefono (4), movil (5), email (6), direccion (7), actividad (8),
+        # nota (9), empresa (10), sitio_web (11), capacidad_persona (12), participacion (13)
+
+        # Construir el nombre completo para el título de la AppBar
+        nombre_completo_titulo = f"{contact[1]} {contact[2]}"
+        if contact[3]:
+            nombre_completo_titulo += f" {contact[3]}"
+        
+        # Lista para almacenar todos los detalles del contacto para la tarjeta
+        all_contact_details = []
+
+        # Añadir cada campo si tiene valor, con iconos
+        if contact[4]: # Telefono
+            all_contact_details.append(ft.Text(f"📞 Teléfono: {contact[4]}", size=14, color=ft.Colors.BLACK87))
+        if contact[5]: # Movil
+            all_contact_details.append(ft.Text(f"📱 Móvil: {contact[5]}", size=14, color=ft.Colors.BLACK87))
+        if contact[6]: # Email
+            all_contact_details.append(ft.Text(f"📧 Email: {contact[6]}", size=14, color=ft.Colors.BLACK87))
+        if contact[7]: # Dirección
+            all_contact_details.append(ft.Text(f"📍 Dirección: {contact[7]}", size=14, color=ft.Colors.BLACK87))
+        if contact[8]: # Actividad
+            all_contact_details.append(ft.Text(f"⚙️ Actividad: {contact[8]}", size=14, color=ft.Colors.BLACK87))
+        if contact[9]: # Nota
+            all_contact_details.append(ft.Text(f"📝 Nota: {contact[9]}", size=14, color=ft.Colors.BLACK87))
+        if contact[10]: # Empresa
+            all_contact_details.append(ft.Text(f"🏢 Empresa: {contact[10]}", size=14, color=ft.Colors.BLACK87))
+        if contact[11]: # Sitio Web
+            all_contact_details.append(ft.Text(f"🌐 Sitio Web: {contact[11]}", size=14, color=ft.Colors.BLACK87))
+        if contact[12]: # Capacidad de Persona
+            all_contact_details.append(ft.Text(f"🏃 Capacidad: {contact[12]}", size=14, color=ft.Colors.BLACK87))
+        if contact[13]: # Participación
+            all_contact_details.append(ft.Text(f"🤝 Participación: {contact[13]}", size=14, color=ft.Colors.BLACK87))
+
+        return ft.View(
+            f"/contact_detail/{contact_id}",
+            [
+                ft.AppBar(
+                    title=ft.Text(nombre_completo_titulo),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(expand=True), # Espacio flexible arriba
+                        ft.Card(
+                            content=ft.Container(
+                                padding=20,
+                                content=ft.Column(
+                                    [
+                                        ft.Text("Detalles del Contacto", size=22, weight=ft.FontWeight.BOLD),
+                                        ft.Divider(height=10, color=ft.Colors.ORANGE_200),
+                                        *all_contact_details, # Desempaqueta todos los detalles
+                                    ],
+                                    spacing=8
+                                )
+                            ),
+                            elevation=4,
+                            margin=ft.margin.all(20), # Margen alrededor de la tarjeta para centrarla
+                        ),
+                        ft.Container(expand=True), # Espacio flexible abajo
+                        footer_text_widget,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    # Eliminado: main_axis_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE # Por si los detalles son muchos en una pantalla pequeña
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN, # Esto es para el View, NO para la Column interna
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+    # --- FIN NUEVA VISTA: DETALLE DE CONTACTO ---
 
 
     # --- Manejo de Rutas ---
     def route_change(route):
         page.views.clear()
+        # Manejo de rutas estáticas
         if page.route == "/home":
             page.views.append(home_view())
         elif page.route == "/login":
             page.views.append(login_view())
         elif page.route == "/register":
             page.views.append(register_view())
-        # --- MODIFICACIÓN DE RUTAS ---
         elif page.route == "/add_contact":
             page.views.append(add_contact_view())
-        elif page.route == "/contacts_list": # NUEVA RUTA
+        elif page.route == "/contacts_list":
             page.views.append(contacts_list_view())
-        # --- FIN MODIFICACIÓN DE RUTAS ---
+        # --- Manejo de ruta dinámica para detalles de contacto ---
+        elif page.route.startswith("/contact_detail/"):
+            # Extraer el ID del contacto de la ruta
+            parts = page.route.split("/")
+            try:
+                contact_id = int(parts[-1]) # El ID es el último segmento de la URL
+                page.views.append(contact_detail_view(contact_id))
+            except ValueError:
+                # Manejar caso de ID no válido (ej. /contact_detail/abc)
+                page.views.append(
+                    ft.View(
+                        "/error",
+                        [
+                            ft.AppBar(title=ft.Text("Error"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE),
+                            ft.Text("ID de contacto no válido.", color=ft.Colors.RED_500),
+                            ft.ElevatedButton("Volver a Contactos", on_click=lambda e: page.go("/contacts_list"))
+                        ]
+                    )
+                )
+        # --- Fin manejo de ruta dinámica ---
         else: # Ruta por defecto
             page.views.append(home_view())
         page.update()
