@@ -318,9 +318,22 @@ def update_contact_db(contact_id, contact_data):
     finally:
         conn.close()
 
-def get_next_quotation_number():
+def peek_next_quotation_number_db():
     """
-    Genera el siguiente número de cotización único, incrementando el contador en la DB.
+    Obtiene el siguiente número de cotización sin incrementarlo en la base de datos.
+    Formato: 000150, 000151, etc.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = ?", ("last_quotation_number",))
+    result = cursor.fetchone()
+    conn.close()
+    current_num = int(result[0]) if result and result[0].isdigit() else 149
+    return f"{current_num + 1:06d}" # Devuelve el siguiente número sin incrementar
+
+def increment_and_get_quotation_number_db():
+    """
+    Incrementa el contador de cotizaciones en la DB y devuelve el nuevo número.
     Formato: 000150, 000151, etc.
     """
     conn = sqlite3.connect(DATABASE_NAME)
@@ -628,8 +641,11 @@ def main(page: ft.Page):
             print(f"ERROR: Error de conversión de tipo: {ve}")
             return
 
+        # Obtener el número de cotización real solo al guardar
+        quotation_number_to_save = increment_and_get_quotation_number_db()
+
         cotizacion_data = {
-            'numero_cotizacion': cotizacion_numero_input.value, # Se obtiene el número de cotización del campo
+            'numero_cotizacion': quotation_number_to_save, # Se obtiene el número de cotización del campo
             'quien_hace_cotizacion': cotizacion_quien_hace_dropdown.value,
             'fecha_automatica': cotizacion_fecha_automatica_input.value,
             'dirigido_a': cotizacion_dirigido_a_input.value,
@@ -664,7 +680,7 @@ def main(page: ft.Page):
             cotizacion_sinpe_dropdown.value = ''
             cotizacion_nota_input.value = ''
             # Actualizar el número de cotización para la próxima vez que se abra el formulario
-            cotizacion_numero_input.value = get_next_quotation_number() 
+            cotizacion_numero_input.value = peek_next_quotation_number_db() # Mostrar el siguiente número provisional
             page.update()
             page.go("/quotations_list") # Navegar a la lista de cotizaciones después de guardar
         print("DEBUG: Finalizando save_cotizacion.")
@@ -797,7 +813,7 @@ def main(page: ft.Page):
         # Actualizar el valor de 'Dirigido a' cada vez que se carga la vista
         cotizacion_dirigido_a_input.value = LOGGED_IN_USER if LOGGED_IN_USER else ""
         cotizacion_fecha_automatica_input.value = datetime.date.today().strftime('%Y-%m-%d') # Asegurar fecha actual al cargar
-        cotizacion_numero_input.value = get_next_quotation_number() # Obtener el siguiente número de cotización
+        cotizacion_numero_input.value = peek_next_quotation_number_db() # Obtener el siguiente número de cotización (sin incrementar en DB)
 
         return ft.View(
             "/cotizacion_form",
