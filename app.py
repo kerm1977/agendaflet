@@ -1485,7 +1485,8 @@ def main(page: ft.Page):
                                             expand=True,
                                             style=ft.ButtonStyle(
                                                 shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
-                                                padding=ft.padding.symmetric(vertical=15)
+                                                # Modificado: Añadido padding horizontal
+                                                padding=ft.padding.symmetric(vertical=15, horizontal=25) 
                                             )
                                         )
                                     ],
