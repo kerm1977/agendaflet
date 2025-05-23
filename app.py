@@ -138,6 +138,13 @@ def init_db():
             )
         ''')
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS normas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                contenido TEXT NOT NULL,
+                fecha_creacion TEXT NOT NULL
+            )
+        ''') # Nueva tabla para normas
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
@@ -446,6 +453,30 @@ def update_cotizacion_db(cotizacion_id, cotizacion_data):
         return False, f"Error al actualizar cotización: {e}"
     finally:
         conn.close()
+
+# --- FUNCIONES DE BASE DE DATOS PARA NORMAS ---
+def add_norma_db(contenido):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    fecha_creacion = datetime.date.today().strftime('%Y-%m-%d')
+    try:
+        cursor.execute("INSERT INTO normas (contenido, fecha_creacion) VALUES (?, ?)",
+                       (contenido, fecha_creacion))
+        conn.commit()
+        return True, "Norma guardada exitosamente."
+    except Exception as e:
+        return False, f"Error al guardar norma: {e}"
+    finally:
+        conn.close()
+
+def get_all_normas_db():
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, contenido, fecha_creacion FROM normas ORDER BY id")
+    normas = cursor.fetchall()
+    conn.close()
+    return normas
+
 
 # --- FUNCIONES DE LA APLICACIÓN FLET ---
 def main(page: ft.Page):
@@ -908,8 +939,49 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # Vista de Normas de La Tribu (Placeholder)
+    # Controles para la vista de Normas
+    normas_list_container = ft.Column(
+        controls=[],
+        expand=True,
+        spacing=10,
+        scroll=ft.ScrollMode.ADAPTIVE
+    )
+
+    def update_normas_list():
+        normas = get_all_normas_db()
+        norma_items = []
+        if not normas:
+            norma_items.append(
+                ft.Text("No hay normas registradas aún.", italic=True, color=ft.Colors.BLACK54)
+            )
+        else:
+            for i, norma in enumerate(normas):
+                norma_id = norma[0]
+                contenido = norma[1]
+                fecha_creacion_db = datetime.datetime.strptime(norma[2], '%Y-%m-%d').strftime('%d/%m/%y')
+                
+                norma_items.append(
+                    ft.Card(
+                        content=ft.Container(
+                            padding=10,
+                            content=ft.Column(
+                                [
+                                    ft.Text(f"{i+1}. {contenido}", size=16, weight=ft.FontWeight.W_500),
+                                    ft.Text(f"(Actualizado el {fecha_creacion_db})", size=12, color=ft.Colors.GREY_600),
+                                ],
+                                spacing=5
+                            ),
+                        ),
+                        margin=ft.margin.symmetric(vertical=5, horizontal=10)
+                    )
+                )
+        normas_list_container.controls = norma_items
+        page.update()
+
+
+    # Vista de Normas de La Tribu
     def normas_de_la_tribu_view():
+        update_normas_list() # Llama a la función para cargar las normas al entrar a la vista
         return ft.View(
             "/normas_de_la_tribu",
             [
@@ -923,19 +995,117 @@ def main(page: ft.Page):
                 ft.Column(
                     [
                         ft.Container(height=20),
-                        ft.Text("Aquí irán las normas de La Tribu.", size=20, color=ft.Colors.BLACK54),
-                        ft.Text("¡Mantente atento a las actualizaciones!", size=16, color=ft.Colors.GREY_600),
-                        ft.Container(expand=True),
+                        normas_list_container, # Contenedor para mostrar las normas
+                        ft.Container(height=20), # Espacio
+                        ft.ResponsiveRow(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.ElevatedButton(
+                                            "Agregar Norma",
+                                            icon=ft.Icons.ADD,
+                                            on_click=lambda e: page.go("/add_norma"), # Nueva ruta para el formulario
+                                            bgcolor=ft.Colors.ORANGE_700,
+                                            color=ft.Colors.WHITE,
+                                            expand=True,
+                                            style=ft.ButtonStyle(
+                                                shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                                                padding=ft.padding.symmetric(vertical=15, horizontal=25)
+                                            )
+                                        )
+                                    ],
+                                    col={"xs": 12},
+                                    alignment=ft.CrossAxisAlignment.CENTER
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=10
+                        ),
+                        ft.Container(height=20), # Espacio
                         footer_text_widget,
                     ],
-                    alignment=ft.MainAxisAlignment.CENTER,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             ],
             vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    # Controles para el formulario de Agregar Norma
+    norma_contenido_input = ft.TextField(
+        label="Contenido de la Norma",
+        multiline=True,
+        min_lines=3,
+        max_lines=10,
+        expand=True,
+    )
+    add_norma_message_text = ft.Text("", color=ft.Colors.RED_500)
+
+    def save_norma(e):
+        contenido = norma_contenido_input.value.strip()
+
+        if not contenido:
+            add_norma_message_text.value = "Por favor, ingresa el contenido de la norma."
+            add_norma_message_text.color = ft.Colors.RED_500
+            page.update()
+            return
+
+        success, message = add_norma_db(contenido)
+
+        page.snack_bar = ft.SnackBar(
+            ft.Text(message, color=ft.Colors.WHITE),
+            bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
+            open=True
+        )
+        page.update()
+
+        if success:
+            norma_contenido_input.value = "" # Limpiar el campo
+            add_norma_message_text.value = "" # Limpiar mensaje
+            page.update()
+            page.go("/normas_de_la_tribu") # Volver a la lista de normas para que se actualice
+
+    # Vista de Formulario para Agregar Norma
+    def add_norma_form_view():
+        norma_contenido_input.value = "" # Limpiar al cargar la vista
+        add_norma_message_text.value = "" # Limpiar mensaje
+        page.update()
+        return ft.View(
+            "/add_norma",
+            [
+                ft.AppBar(
+                    title=ft.Text("Agregar Nueva Norma"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/normas_de_la_tribu"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(height=20),
+                        ft.Text("Escribe el contenido de la nueva norma:", size=18, weight=ft.FontWeight.BOLD),
+                        ft.ResponsiveRow([ft.Column([norma_contenido_input], col={"xs": 12})]),
+                        add_norma_message_text,
+                        ft.Container(height=20),
+                        ft.ResponsiveRow(
+                            [ft.Column([ft.ElevatedButton("Guardar Norma", on_click=save_norma, expand=True)], col={"xs": 12, "md": 6})],
+                            alignment=ft.MainAxisAlignment.CENTER
+                        ),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE,
+                    spacing=10
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.START,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
 
     # --- Controles de Autenticación (Globales) ---
     username_email_input = ft.TextField(
@@ -2232,6 +2402,8 @@ def main(page: ft.Page):
             page.views.append(agenda_view())
         elif page.route == "/normas_de_la_tribu": # Nueva ruta para Normas de La Tribu
             page.views.append(normas_de_la_tribu_view())
+        elif page.route == "/add_norma": # Nueva ruta para el formulario de agregar norma
+            page.views.append(add_norma_form_view())
         elif page.route == "/cotizacion_form":
             page.views.append(cotizacion_form_view())
         else: 
