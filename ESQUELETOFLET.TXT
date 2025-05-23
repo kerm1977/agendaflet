@@ -1,0 +1,254 @@
+Recomendación clave: Para el directorio más preciso y detallado, siempre consulta la documentación oficial de Flet y las notas de la versión en GitHub. La documentación oficial es la fuente definitiva de la sintaxis y el uso de los controles.
+
+Aquí tienes un índice estructurado que puedes usar para tu propio directorio:
+
+Directorio de Sintaxis Flet 0.28.3
+
+I. Conceptos Fundamentales
+
+    Inicio de la Aplicación (ft.app)
+        target: Función principal de la aplicación (main).
+        view: Tipo de vista (ej. ft.AppView.WEB_BROWSER, ft.AppView.FLET_APP).
+        port: Puerto para aplicaciones web.
+        assets_dir: Directorio para activos estáticos.
+
+    Página (ft.Page)
+        title: Título de la ventana/pestaña.
+        vertical_alignment: Alineación vertical de los controles (ft.MainAxisAlignment).
+        horizontal_alignment: Alineación horizontal de los controles (ft.CrossAxisAlignment).
+        bgcolor: Color de fondo.
+        window_width, window_height, window_min_width, window_min_height, window_max_width, window_max_height.
+        window_resizable, window_maximizable, window_minimizable, window_full_screen.
+        window_always_on_top, window_prevent_close, window_to_front.
+        on_route_change: Evento de cambio de ruta.
+        on_view_pop: Evento de eliminación de vista.
+        on_keyboard_event: Eventos de teclado.
+        on_resize: Evento de redimensionamiento de ventana.
+        on_scroll: Evento de scroll (para Page o ScrollableControls).
+        add(), controls.append(), remove(), update().
+        go(): Navegación por rutas.
+        views: Lista de vistas.
+
+    Controles Base (ft.Control)
+        Propiedades comunes: width, height, expand, visible, tooltip, data, key, opacity, rotate, scale, left, top, right, bottom.
+        Eventos comunes: on_click, on_hover, on_focus, on_blur.
+        update(): Actualizar el control.
+        focus(): Poner el foco en el control.
+        blur(): Quitar el foco.
+
+II. Controles de Diseño y Contenedores
+
+    ft.Container
+        content: Control hijo.
+        width, height.
+        padding, margin.
+        alignment: Alineación del content (ft.alignment).
+        bgcolor, gradient, border, border_radius.
+        image_src, image_fit, image_repeat, image_opacity.
+        ink: Efecto de tinta.
+        on_click, on_long_press, on_tap_down, on_tap_up, etc.
+
+    ft.Column
+        controls: Lista de controles.
+        spacing: Espacio entre controles.
+        alignment: Alineación vertical de los hijos (ft.MainAxisAlignment).
+        horizontal_alignment: Alineación horizontal de los hijos (ft.CrossAxisAlignment).
+        wrap: Si los elementos deben envolverse en la siguiente línea.
+        scroll: Modo de scroll (ft.ScrollMode).
+        expand.
+
+    ft.Row
+        controls: Lista de controles.
+        spacing: Espacio entre controles.
+        alignment: Alineación horizontal de los hijos (ft.MainAxisAlignment).
+        vertical_alignment: Alineación vertical de los hijos (ft.CrossAxisAlignment).
+        wrap: Si los elementos deben envolverse en la siguiente línea.
+        scroll: Modo de scroll (ft.ScrollMode).
+        expand.
+
+    ft.Stack
+        controls: Lista de controles posicionados absolutamente.
+        clip_behavior: Comportamiento de recorte.
+
+    ft.ResponsiveRow
+        controls: Lista de ft.Column con propiedades col.
+        spacing, run_spacing.
+        alignment, vertical_alignment.
+
+III. Controles de Entrada de Datos
+
+    ft.TextField
+        label, hint_text, value.
+        multiline, min_lines, max_lines.
+        read_only, password, can_reveal_password.
+        keyboard_type: Tipo de teclado (ft.KeyboardType).
+        on_change, on_submit, on_focus, on_blur.
+        prefix_icon, suffix_icon, prefix_text, suffix_text.
+        border_radius, border_color, focused_border_color.
+        text_align, text_size, text_color.
+        error_text, helper_text, counter_text.
+
+    ft.Dropdown
+        label, hint_text, value.
+        options: Lista de ft.dropdown.Option.
+        on_change.
+        autofocus, disabled.
+
+    ft.Checkbox
+        label, value (booleano).
+        on_change.
+        tristate.
+
+    ft.Radio, ft.RadioGroup
+        ft.RadioGroup: content (ej. ft.Row de radios), value, on_change.
+        ft.Radio: value, label.
+
+    ft.Slider
+        min, max, value.
+        divisions, label.
+        on_change, on_change_start, on_change_end.
+
+    ft.Switch
+        label, value (booleano).
+        on_change.
+
+IV. Controles de Visualización
+
+    ft.Text
+        value: Texto.
+        size, weight (ft.FontWeight), color.
+        font_family, italic, max_lines, overflow.
+        selectable: Permite seleccionar el texto.
+        spans: Lista de ft.TextSpan para texto con formato mixto.
+
+    ft.Icon
+        name: Nombre del ícono (ft.icons.NOMBRE_DEL_ICONO).
+        color, size.
+
+    ft.Image
+        src, src_base64.
+        width, height.
+        fit (ft.ImageFit), repeat (ft.ImageRepeat).
+        semantic_label.
+
+    ft.Markdown
+        value: Contenido Markdown.
+        extension_set (ft.MarkdownExtensionSet).
+        code_theme (ft.MarkdownCodeTheme).
+        selectable.
+
+    ft.ProgressBar
+        value: Valor actual (0.0 a 1.0) o None para indeterminado.
+        width, height, color, bgcolor.
+
+    ft.ProgressRing
+        Similar a ProgressBar pero circular.
+
+V. Botones
+
+    ft.ElevatedButton
+        text, icon.
+        on_click.
+        tooltip, disabled.
+        style: ft.ButtonStyle para personalizar.
+
+    ft.FilledButton, ft.FilledTonalButton
+        Variantes de botón con estilos de Material Design 3.
+
+    ft.OutlinedButton
+        Botón con borde.
+
+    ft.TextButton
+        Botón de texto plano.
+
+    ft.IconButton
+        icon, icon_color, icon_size.
+        on_click.
+
+    ft.FloatingActionButton (ft.FloatingActionButtonLocation)
+        Botón de acción flotante.
+
+VI. Diálogos y Menús
+
+    ft.AlertDialog
+        modal, title, content, actions.
+        on_dismiss.
+        open=True/False.
+
+    ft.BottomSheet
+        content, open=True/False.
+
+    ft.SnackBar
+        content, open=True/False.
+        action_text, on_action.
+
+    ft.PopupMenuButton
+        items: Lista de ft.PopupMenuItem.
+        icon.
+
+    ft.MenuBar, ft.MenuItemButton (Controles más recientes para menús de escritorio)
+
+VII. Controles de Navegación
+
+    ft.AppBar
+        title, leading, actions.
+        bgcolor, center_title.
+        toolbar_height.
+
+    ft.NavigationBar
+        destinations: Lista de ft.NavigationDestination.
+        selected_index, on_change.
+
+    ft.NavigationRail
+        destinations, selected_index, on_change.
+        extended, leading, trailing.
+
+    ft.Tabs
+        selected_index, on_change.
+        tabs: Lista de ft.Tab.
+
+VIII. Disposición Avanzada
+
+    ft.Card
+        content, elevation.
+
+    ft.Divider
+        Línea divisoria.
+
+    ft.CircleAvatar
+        Avatar circular para imágenes o texto.
+
+    ft.ListView
+        controls: Lista de controles.
+        spacing, padding, auto_scroll, scroll_to_fn.
+        scroll_direction: ft.Axis.VERTICAL o ft.Axis.HORIZONTAL.
+
+    ft.GridView
+        controls.
+        runs_count, child_aspect_ratio.
+
+IX. Utilidades y Temas
+
+    ft.MainAxisAlignment, ft.CrossAxisAlignment: Enumeraciones para alineación.
+    ft.alignment: Objeto para alinear Containers.
+    ft.colors: Constantes de color predefinidas.
+    ft.icons: Constantes de iconos predefinidas.
+    ft.ThemeData: Para personalizar el tema de la aplicación (colores, fuentes, etc.).
+        color_scheme, text_theme, app_bar_theme, button_theme, etc.
+    ft.TextTheme: Para definir estilos de texto a nivel global.
+    ft.FontWeight: Pesos de fuente.
+
+X. Eventos y Manejo de Estado
+
+    e.control: El control que disparó el evento.
+    e.page: La página actual.
+    e.data: Datos específicos del evento (ej. valor de un slider, texto de un textfield).
+    Manejo de estado global/local: Uso de variables de Python, o patrones más avanzados para aplicaciones grandes.
+
+Notas Importantes para tu Directorio:
+
+    Ejemplos de Código: Para cada elemento en tu directorio, añade un pequeño ejemplo de código que muestre su uso básico.
+    Propiedades Clave: No intentes listar todas las propiedades de cada control, sino las más importantes y usadas comúnmente.
+    Eventos: Indica los eventos principales que cada control puede disparar (ej. on_click, on_change, on_submit).
+    Responsive Design: Haz hincapié en el uso de ft.ResponsiveRow y la propiedad col para crear interfaces adaptables.
+    Material Design 3: Flet 0.28.3 está alineado con Material Design 3, así que puedes mencionar controles como ft.FilledButton, ft.FilledTonalButton y ft.NavigationBar como parte de esto
