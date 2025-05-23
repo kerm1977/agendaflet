@@ -682,15 +682,16 @@ def main(page: ft.Page):
                     on_click=logout_user,
                 )
             )
-            app_bar_actions.append(
-                ft.IconButton(
-                    icon=ft.Icons.CONTACTS, 
-                    icon_color=ft.Colors.WHITE,
-                    icon_size=24,
-                    tooltip="Ver Contactos",
-                    on_click=lambda e: page.go("/contacts_list"), 
-                )
-            )
+            # El botón "Ver Contactos" se ha movido a una tarjeta en el cuerpo de la vista
+            # app_bar_actions.append(
+            #     ft.IconButton(
+            #         icon=ft.Icons.CONTACTS, 
+            #         icon_color=ft.Colors.WHITE,
+            #         icon_size=24,
+            #         tooltip="Ver Contactos",
+            #         on_click=lambda e: page.go("/contacts_list"), 
+            #     )
+            # )
             app_bar_actions.append(
                 ft.IconButton(
                     icon=ft.Icons.RECEIPT, 
@@ -758,6 +759,25 @@ def main(page: ft.Page):
                                     vertical_alignment=ft.CrossAxisAlignment.CENTER
                                 ),
                                 on_click=lambda e: page.go("/cotizacion_form")
+                            )
+                        ),
+                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), # Espacio entre tarjetas
+
+                        # Nueva Tarjeta de Ver Contactos
+                        ft.Card(
+                            elevation=2,
+                            shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                            content=ft.Container(
+                                padding=ft.padding.symmetric(vertical=15, horizontal=15),
+                                content=ft.Row(
+                                    [
+                                        ft.Text("Ver Contactos", size=16, weight=ft.FontWeight.W_500, expand=True), 
+                                        ft.Icon(name=ft.Icons.KEYBOARD_ARROW_RIGHT, color=ft.Colors.GREY_500),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER
+                                ),
+                                on_click=lambda e: page.go("/contacts_list")
                             )
                         ),
                         
