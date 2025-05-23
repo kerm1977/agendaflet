@@ -105,7 +105,7 @@ def get_setting_db(key):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
-    result = cursor.fetchone()
+    result = conn.cursor().fetchone()
     conn.close()
     return result[0] if result else None
 
@@ -782,13 +782,51 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    def contacts_list_view():
-        contacts = get_all_contacts_db() 
+    ### CAMBIO IMPORTANTE: Campo de búsqueda y contenedor de lista dinámica
+    search_input = ft.TextField(
+        label="Buscar contacto",
+        hint_text="Buscar por nombre, teléfono, móvil, actividad o participación",
+        prefix_icon=ft.Icons.SEARCH, 
+        on_change=lambda e: update_contacts_list(e.control.value),
+        expand=True
+    )
 
+    contacts_list_container = ft.Column(
+        controls=[],
+        expand=True,
+        # padding=10, # Eliminado el argumento padding
+        spacing=10,
+        scroll=ft.ScrollMode.ADAPTIVE
+    )
+
+    def get_filtered_contacts_db(search_term=""):
+        conn = sqlite3.connect(DATABASE_NAME)
+        cursor = conn.cursor()
+        search_term_lower = f"%{search_term.lower()}%"
+        
+        query = """
+            SELECT * FROM contactos WHERE
+            LOWER(nombre) LIKE ? OR
+            LOWER(primer_apellido) LIKE ? OR
+            LOWER(segundo_apellido) LIKE ? OR
+            telefono LIKE ? OR
+            movil LIKE ? OR
+            LOWER(actividad) LIKE ? OR
+            LOWER(participacion) LIKE ?
+            ORDER BY nombre, primer_apellido
+        """
+        cursor.execute(query, (search_term_lower, search_term_lower, search_term_lower, 
+                               search_term_lower, search_term_lower, search_term_lower, search_term_lower))
+        contacts = cursor.fetchall()
+        conn.close()
+        return contacts
+
+    def update_contacts_list(search_term=""):
+        contacts = get_filtered_contacts_db(search_term)
         contact_items = []
         if not contacts:
             contact_items.append(
-                ft.Text("No hay contactos aún. ¡Agrega uno!", italic=True, color=ft.Colors.BLACK54)
+                ft.Text("No hay contactos que coincidan con tu búsqueda.", italic=True, color=ft.Colors.BLACK54)
             )
         else:
             for contact in contacts:
@@ -820,7 +858,13 @@ def main(page: ft.Page):
                         margin=ft.margin.symmetric(vertical=5, horizontal=10)
                     )
                 )
+        contacts_list_container.controls = contact_items
+        page.update()
+    ### FIN CAMBIO IMPORTANTE
 
+    def contacts_list_view():
+        # Initialize the list with all contacts when the view is first loaded
+        update_contacts_list("") 
         return ft.View(
             "/contacts_list",
             [
@@ -842,12 +886,11 @@ def main(page: ft.Page):
                 ),
                 ft.Column(
                     [
-                        ft.ListView(
-                            controls=contact_items,
-                            expand=True,
-                            padding=10,
-                            spacing=10,
+                        ft.Container(
+                            content=search_input,
+                            padding=ft.padding.symmetric(horizontal=10, vertical=5)
                         ),
+                        contacts_list_container, # Use the dynamic container here
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
