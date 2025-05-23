@@ -2,6 +2,7 @@ import flet as ft
 import sqlite3
 import hashlib
 import re
+import time # Importar time para usar sleep si es necesario para el SnackBar
 
 DATABASE_NAME = "users.db"
 LOGGED_IN_USER = None # Variable global para simular el usuario logueado
@@ -183,18 +184,25 @@ def get_contact_by_id_db(contact_id):
     conn.close()
     return contact
 
-# --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB ---
+# --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB (AÑADIDOS PRINTS DE DEPURACIÓN) ---
 def delete_contact_db(contact_id):
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
+    print(f"DEBUG: Intentando eliminar contacto con ID: {contact_id}") # DEBUG
     try:
         cursor.execute("DELETE FROM contactos WHERE id = ?", (contact_id,))
         conn.commit()
-        return True, "Contacto eliminado exitosamente."
+        print(f"DEBUG: Commit realizado para ID: {contact_id}. Filas afectadas: {cursor.rowcount}") # DEBUG: Verifica si se eliminó alguna fila
+        if cursor.rowcount > 0:
+            return True, "Contacto eliminado exitosamente."
+        else:
+            return False, "Contacto no encontrado para eliminar." # En caso de que el ID no exista
     except Exception as e:
+        print(f"ERROR: Error al eliminar contacto con ID {contact_id}: {e}") # DEBUG
         return False, f"Error al eliminar contacto: {e}"
     finally:
         conn.close()
+        print(f"DEBUG: Conexión a la DB cerrada.") # DEBUG
 
 def update_contact_db(contact_id, contact_data):
     conn = sqlite3.connect(DATABASE_NAME)
@@ -238,6 +246,20 @@ def main(page: ft.Page):
     page.window_height = 700
 
     init_db()
+
+    # --- Diálogo de confirmación global ---
+    # Lo definimos aquí para que Flet lo "conozca" desde el inicio del main
+    confirm_dialog_global = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Confirmar Eliminación"),
+        content=ft.Text(""), # El contenido se actualizará dinámicamente
+        actions=[
+            ft.TextButton("Sí, Eliminar", style=ft.ButtonStyle(color=ft.Colors.RED_500)), # on_click se asignará dinámicamente
+            ft.TextButton("Cancelar"), # on_click se asignará dinámicamente
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+    page.overlay.append(confirm_dialog_global) # Añadirlo al overlay de la página
 
     def logout_user(e):
         global LOGGED_IN_USER
@@ -840,39 +862,48 @@ def main(page: ft.Page):
             all_contact_details.append(ft.Text(f"🤝 Participación: {contact[13]}", size=14, color=ft.Colors.BLACK87))
 
         # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
-        def confirm_delete_dialog(e):
-            def delete_confirmed(e):
-                success, message = delete_contact_db(contact_id)
-                page.close(confirm_dialog) # Cerrar el diálogo
-                if success:
-                    page.snack_bar = ft.SnackBar(
-                        ft.Text(message, color=ft.Colors.WHITE),
-                        bgcolor=ft.Colors.GREEN_600,
-                        open=True
-                    )
-                    page.update()
-                    page.go("/contacts_list") # Volver a la lista después de borrar
-                else:
-                    page.snack_bar = ft.SnackBar(
-                        ft.Text(message, color=ft.Colors.WHITE),
-                        bgcolor=ft.Colors.RED_600,
-                        open=True
-                    )
-                    page.update()
+        # Ahora, esta es la función que se llama directamente desde el botón.
+        # Usa el diálogo global
+        def confirm_delete_dialog_handler(e):
+            print(f"DEBUG: confirm_delete_dialog_handler llamado para ID: {contact_id}") # DEBUG
+            
+            def delete_confirmed(e_dialog): # El 'e_dialog' es el evento del click del botón "Sí, Eliminar"
+                print(f"DEBUG: delete_confirmed llamado para ID: {contact_id}") # DEBUG
+                # YA NO ES NECESARIO page.dialog = confirm_dialog_global, YA ESTÁ EN page.overlay
+                confirm_dialog_global.open = False # Cerrar el diálogo
+                page.update() # Actualizar para cerrar el diálogo (y aplicar otros cambios si los hubiera)
 
-            confirm_dialog = ft.AlertDialog(
-                modal=True,
-                title=ft.Text("Confirmar Eliminación"),
-                content=ft.Text(f"¿Estás seguro de que deseas eliminar a {nombre_completo_titulo}? Esta acción no se puede deshacer."),
-                actions=[
-                    ft.TextButton("Sí, Eliminar", on_click=delete_confirmed, style=ft.ButtonStyle(color=ft.Colors.RED_500)),
-                    ft.TextButton("Cancelar", on_click=lambda e: page.close(confirm_dialog)),
-                ],
-                actions_alignment=ft.MainAxisAlignment.END,
-            )
-            page.dialog = confirm_dialog
-            confirm_dialog.open = True
-            page.update()
+                success, message = delete_contact_db(contact_id) # Usar contact_id del scope
+
+                # Mostrar SnackBar
+                page.snack_bar = ft.SnackBar(
+                    ft.Text(message, color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
+                    open=True
+                )
+                page.update() # Actualiza la página para mostrar el SnackBar
+
+                if success:
+                    # Redirigir a la lista de contactos después de un pequeño retraso para ver el snackbar
+                    # Usamos time.sleep para una pausa simple, ya que run_animation no es para esto.
+                    # Nota: time.sleep() bloquea el UI, para apps complejas usar asincronía (asyncio.sleep)
+                    # o un Timer si es crítico que el UI no se congele, pero para 300ms está bien.
+                    time.sleep(0.3) # 0.3 segundos de pausa
+                    page.go("/contacts_list") 
+                # Si no fue exitoso, el snackbar ya mostró el mensaje de error y no redirigimos.
+
+            # Configurar el diálogo global
+            confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar a {nombre_completo_titulo}? Esta acción no se puede deshacer."
+            confirm_dialog_global.actions[0].on_click = delete_confirmed # Asignar el on_click al botón "Sí, Eliminar"
+            # CORRECCIÓN: Usar page.close_dialog_async en lugar de page.close_dialog
+            confirm_dialog_global.actions[1].on_click = lambda e_dialog: page.close_dialog_async(confirm_dialog_global) # Asignar al botón "Cancelar"
+            
+            # Ya no es necesario page.dialog = confirm_dialog_global aquí porque ya está en page.overlay
+            # Esto es una redundancia que puede causar problemas si Flet ya lo gestiona.
+            # page.dialog = confirm_dialog_global # Eliminar o comentar esta línea
+
+            confirm_dialog_global.open = True
+            page.update() # Abrir el diálogo
         # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
 
         return ft.View(
@@ -896,7 +927,7 @@ def main(page: ft.Page):
                             icon=ft.Icons.DELETE,
                             icon_color=ft.Colors.RED_200, # Un rojo suave para que no sea tan brusco en la AppBar
                             tooltip="Eliminar Contacto",
-                            on_click=confirm_delete_dialog # Llamar al diálogo de confirmación
+                            on_click=confirm_delete_dialog_handler # Llamada directa a la nueva función handler
                         ),
                     ]
                     # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Botones en AppBar ---
@@ -942,7 +973,7 @@ def main(page: ft.Page):
                 [
                     ft.AppBar(title=ft.Text("Contacto No Encontrado"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE,
                               leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list"))),
-                    ft.Text("El contacto solicitado para edición no pudo ser encontrado.", color=ft.Colors.RED_500)
+                    ft.Text("ID de contacto no válido para edición.", color=ft.Colors.RED_500)
                 ]
             )
         
@@ -952,17 +983,17 @@ def main(page: ft.Page):
         # nota (9), empresa (10), sitio_web (11), capacidad_persona (12), participacion (13)
         contact_nombre_input.value = contact[1]
         contact_primer_apellido_input.value = contact[2]
-        contact_segundo_apellido_input.value = contact[3]
-        contact_telefono_input.value = contact[4]
-        contact_movil_input.value = contact[5]
-        contact_email_input.value = contact[6]
-        contact_direccion_input.value = contact[7]
-        contact_actividad_dropdown.value = contact[8]
-        contact_nota_input.value = contact[9]
-        contact_empresa_input.value = contact[10]
-        contact_sitio_web_input.value = contact[11]
-        contact_capacidad_persona_dropdown.value = contact[12]
-        contact_participacion_dropdown.value = contact[13]
+        contact_segundo_apellido_input.value = contact[3] if contact[3] else "" # Manejar None
+        contact_telefono_input.value = contact[4] if contact[4] else ""
+        contact_movil_input.value = contact[5] if contact[5] else ""
+        contact_email_input.value = contact[6] if contact[6] else ""
+        contact_direccion_input.value = contact[7] if contact[7] else ""
+        contact_actividad_dropdown.value = contact[8] if contact[8] else ""
+        contact_nota_input.value = contact[9] if contact[9] else ""
+        contact_empresa_input.value = contact[10] if contact[10] else ""
+        contact_sitio_web_input.value = contact[11] if contact[11] else ""
+        contact_capacidad_persona_dropdown.value = contact[12] if contact[12] else ""
+        contact_participacion_dropdown.value = contact[13] if contact[13] else ""
         edit_contact_message_text.value = "" # Limpiar mensajes previos
         page.update() # Asegurar que los campos se actualicen en la UI
 
@@ -1003,7 +1034,7 @@ def main(page: ft.Page):
                 edit_contact_message_text.value = message
                 edit_contact_message_text.color = ft.Colors.GREEN_500
                 page.update()
-                # Opcional: Redirigir de nuevo a la vista de detalle o a la lista
+                # Redirigir de nuevo a la vista de detalle
                 page.go(f"/contact_detail/{contact_id}") 
             else:
                 edit_contact_message_text.value = message
