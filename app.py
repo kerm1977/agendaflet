@@ -182,6 +182,53 @@ def get_contact_by_id_db(contact_id):
     contact = cursor.fetchone()
     conn.close()
     return contact
+
+# --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB ---
+def delete_contact_db(contact_id):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM contactos WHERE id = ?", (contact_id,))
+        conn.commit()
+        return True, "Contacto eliminado exitosamente."
+    except Exception as e:
+        return False, f"Error al eliminar contacto: {e}"
+    finally:
+        conn.close()
+
+def update_contact_db(contact_id, contact_data):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            UPDATE contactos SET
+                nombre = ?, primer_apellido = ?, segundo_apellido = ?, telefono = ?,
+                movil = ?, email = ?, direccion = ?, actividad = ?, nota = ?,
+                empresa = ?, sitio_web = ?, capacidad_persona = ?, participacion = ?
+            WHERE id = ?
+        ''', (
+            contact_data['nombre'],
+            contact_data['primer_apellido'],
+            contact_data['segundo_apellido'],
+            contact_data['telefono'],
+            contact_data['movil'],
+            contact_data['email'],
+            contact_data['direccion'],
+            contact_data['actividad'],
+            contact_data['nota'],
+            contact_data['empresa'],
+            contact_data['sitio_web'],
+            contact_data['capacidad_persona'],
+            contact_data['participacion'],
+            contact_id
+        ))
+        conn.commit()
+        return True, "Contacto actualizado exitosamente."
+    except Exception as e:
+        return False, f"Error al actualizar contacto: {e}"
+    finally:
+        conn.close()
+# --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Funciones DB ---
 # --- FIN NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS ---
 
 
@@ -493,7 +540,7 @@ def main(page: ft.Page):
         )
 
     # --- NUEVA FUNCIONALIDAD: AGENDA DE CONTACTOS - FORMULARIO DE AÑADIR ---
-    # Campos de entrada para el formulario de contacto (se mantienen para la vista de añadir)
+    # Campos de entrada para el formulario de contacto (se mantienen para la vista de añadir y editar)
     contact_nombre_input = ft.TextField(label="Nombre", expand=True)
     contact_primer_apellido_input = ft.TextField(label="Primer Apellido", expand=True)
     contact_segundo_apellido_input = ft.TextField(label="Segundo Apellido (Opcional)", expand=True)
@@ -522,6 +569,8 @@ def main(page: ft.Page):
         expand=True,
     )
     add_contact_message_text = ft.Text("", color=ft.Colors.RED_500)
+    edit_contact_message_text = ft.Text("", color=ft.Colors.RED_500)
+
 
     def save_contact(e):
         # Validar campos obligatorios
@@ -574,12 +623,31 @@ def main(page: ft.Page):
             contact_capacidad_persona_dropdown.value = "" # Restablecer Dropdown
             contact_participacion_dropdown.value = "" # Restablecer Dropdown
             page.update()
+            # Opcional: Redirigir a la lista de contactos después de añadir
+            # page.go("/contacts_list") 
         else:
             add_contact_message_text.value = message
             add_contact_message_text.color = ft.Colors.RED_500
             page.update()
 
     def add_contact_view():
+        # Asegurarse de limpiar los campos al entrar a la vista de añadir
+        contact_nombre_input.value = ""
+        contact_primer_apellido_input.value = ""
+        contact_segundo_apellido_input.value = ""
+        contact_telefono_input.value = ""
+        contact_movil_input.value = ""
+        contact_email_input.value = ""
+        contact_direccion_input.value = ""
+        contact_actividad_dropdown.value = ""
+        contact_nota_input.value = ""
+        contact_empresa_input.value = ""
+        contact_sitio_web_input.value = ""
+        contact_capacidad_persona_dropdown.value = ""
+        contact_participacion_dropdown.value = ""
+        add_contact_message_text.value = ""
+        page.update() # Asegurar que los cambios se reflejen
+
         return ft.View(
             "/add_contact",
             [
@@ -771,6 +839,42 @@ def main(page: ft.Page):
         if contact[13]: # Participación
             all_contact_details.append(ft.Text(f"🤝 Participación: {contact[13]}", size=14, color=ft.Colors.BLACK87))
 
+        # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
+        def confirm_delete_dialog(e):
+            def delete_confirmed(e):
+                success, message = delete_contact_db(contact_id)
+                page.close(confirm_dialog) # Cerrar el diálogo
+                if success:
+                    page.snack_bar = ft.SnackBar(
+                        ft.Text(message, color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.GREEN_600,
+                        open=True
+                    )
+                    page.update()
+                    page.go("/contacts_list") # Volver a la lista después de borrar
+                else:
+                    page.snack_bar = ft.SnackBar(
+                        ft.Text(message, color=ft.Colors.WHITE),
+                        bgcolor=ft.Colors.RED_600,
+                        open=True
+                    )
+                    page.update()
+
+            confirm_dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Confirmar Eliminación"),
+                content=ft.Text(f"¿Estás seguro de que deseas eliminar a {nombre_completo_titulo}? Esta acción no se puede deshacer."),
+                actions=[
+                    ft.TextButton("Sí, Eliminar", on_click=delete_confirmed, style=ft.ButtonStyle(color=ft.Colors.RED_500)),
+                    ft.TextButton("Cancelar", on_click=lambda e: page.close(confirm_dialog)),
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+            page.dialog = confirm_dialog
+            confirm_dialog.open = True
+            page.update()
+        # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Diálogo de confirmación ---
+
         return ft.View(
             f"/contact_detail/{contact_id}",
             [
@@ -779,7 +883,23 @@ def main(page: ft.Page):
                     center_title=True,
                     bgcolor=ft.Colors.ORANGE_700,
                     color=ft.Colors.WHITE,
-                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list"))
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list")),
+                    # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Botones en AppBar ---
+                    actions=[
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_color=ft.Colors.WHITE,
+                            tooltip="Editar Contacto",
+                            on_click=lambda e: page.go(f"/edit_contact/{contact_id}") # Navegar a la vista de edición
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_color=ft.Colors.RED_200, # Un rojo suave para que no sea tan brusco en la AppBar
+                            tooltip="Eliminar Contacto",
+                            on_click=confirm_delete_dialog # Llamar al diálogo de confirmación
+                        ),
+                    ]
+                    # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Botones en AppBar ---
                 ),
                 ft.Column(
                     [
@@ -803,7 +923,6 @@ def main(page: ft.Page):
                         footer_text_widget,
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    # Eliminado: main_axis_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     expand=True,
                     scroll=ft.ScrollMode.ADAPTIVE # Por si los detalles son muchos en una pantalla pequeña
                 )
@@ -812,6 +931,133 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
     # --- FIN NUEVA VISTA: DETALLE DE CONTACTO ---
+
+    # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - VISTA DE EDICIÓN ---
+    def edit_contact_view(contact_id):
+        contact = get_contact_by_id_db(contact_id)
+
+        if not contact:
+            return ft.View(
+                f"/edit_contact/{contact_id}",
+                [
+                    ft.AppBar(title=ft.Text("Contacto No Encontrado"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE,
+                              leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/contacts_list"))),
+                    ft.Text("El contacto solicitado para edición no pudo ser encontrado.", color=ft.Colors.RED_500)
+                ]
+            )
+        
+        # Pre-llenar los campos con los datos existentes del contacto
+        # id (0), nombre (1), primer_apellido (2), segundo_apellido (3),
+        # telefono (4), movil (5), email (6), direccion (7), actividad (8),
+        # nota (9), empresa (10), sitio_web (11), capacidad_persona (12), participacion (13)
+        contact_nombre_input.value = contact[1]
+        contact_primer_apellido_input.value = contact[2]
+        contact_segundo_apellido_input.value = contact[3]
+        contact_telefono_input.value = contact[4]
+        contact_movil_input.value = contact[5]
+        contact_email_input.value = contact[6]
+        contact_direccion_input.value = contact[7]
+        contact_actividad_dropdown.value = contact[8]
+        contact_nota_input.value = contact[9]
+        contact_empresa_input.value = contact[10]
+        contact_sitio_web_input.value = contact[11]
+        contact_capacidad_persona_dropdown.value = contact[12]
+        contact_participacion_dropdown.value = contact[13]
+        edit_contact_message_text.value = "" # Limpiar mensajes previos
+        page.update() # Asegurar que los campos se actualicen en la UI
+
+        def update_existing_contact(e):
+            # Validar campos obligatorios
+            if not all([contact_nombre_input.value, contact_primer_apellido_input.value]):
+                edit_contact_message_text.value = "Nombre y Primer Apellido son obligatorios."
+                edit_contact_message_text.color = ft.Colors.RED_500
+                page.update()
+                return
+            
+            # Validar formato de email si se proporciona
+            if contact_email_input.value and not is_valid_email(contact_email_input.value):
+                edit_contact_message_text.value = "Formato de correo electrónico inválido."
+                edit_contact_message_text.color = ft.Colors.RED_500
+                page.update()
+                return
+
+            updated_data = {
+                'nombre': contact_nombre_input.value.strip(),
+                'primer_apellido': contact_primer_apellido_input.value.strip(),
+                'segundo_apellido': contact_segundo_apellido_input.value.strip(),
+                'telefono': contact_telefono_input.value.strip(),
+                'movil': contact_movil_input.value.strip(),
+                'email': contact_email_input.value.strip(),
+                'direccion': contact_direccion_input.value.strip(),
+                'actividad': contact_actividad_dropdown.value if contact_actividad_dropdown.value else '',
+                'nota': contact_nota_input.value.strip(),
+                'empresa': contact_empresa_input.value.strip(),
+                'sitio_web': contact_sitio_web_input.value.strip(),
+                'capacidad_persona': contact_capacidad_persona_dropdown.value if contact_capacidad_persona_dropdown.value else '',
+                'participacion': contact_participacion_dropdown.value if contact_participacion_dropdown.value else ''
+            }
+
+            success, message = update_contact_db(contact_id, updated_data)
+
+            if success:
+                edit_contact_message_text.value = message
+                edit_contact_message_text.color = ft.Colors.GREEN_500
+                page.update()
+                # Opcional: Redirigir de nuevo a la vista de detalle o a la lista
+                page.go(f"/contact_detail/{contact_id}") 
+            else:
+                edit_contact_message_text.value = message
+                edit_contact_message_text.color = ft.Colors.RED_500
+                page.update()
+
+        return ft.View(
+            f"/edit_contact/{contact_id}",
+            [
+                ft.AppBar(
+                    title=ft.Text(f"Editar Contacto: {contact[1]} {contact[2]}"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go(f"/contact_detail/{contact_id}"))
+                ),
+                ft.Column( # Contenedor principal de la vista de editar contacto
+                    [
+                        ft.Text("Modificar Datos del Contacto", size=24, weight=ft.FontWeight.BOLD),
+                        ft.ResponsiveRow([ft.Column([contact_nombre_input], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([ft.Column([contact_primer_apellido_input], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([ft.Column([contact_segundo_apellido_input], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([
+                            ft.Column([contact_telefono_input], col={"xs": 12, "md": 6}),
+                            ft.Column([contact_movil_input], col={"xs": 12, "md": 6}),
+                        ]),
+                        ft.ResponsiveRow([ft.Column([contact_email_input], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([ft.Column([contact_direccion_input], col={"xs": 12, "md": 12})]),
+                        ft.ResponsiveRow([ft.Column([contact_actividad_dropdown], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([ft.Column([contact_nota_input], col={"xs": 12, "md": 12})]),
+                        ft.ResponsiveRow([
+                            ft.Column([contact_empresa_input], col={"xs": 12, "md": 6}),
+                            ft.Column([contact_sitio_web_input], col={"xs": 12, "md": 6}),
+                        ]),
+                        ft.ResponsiveRow([ft.Column([contact_capacidad_persona_dropdown], col={"xs": 12, "md": 6})]),
+                        ft.ResponsiveRow([ft.Column([contact_participacion_dropdown], col={"xs": 12, "md": 6})]),
+                        edit_contact_message_text,
+                        ft.ResponsiveRow(
+                            [ft.Column([ft.ElevatedButton("Actualizar Contacto", on_click=update_existing_contact, expand=True)], col={"xs": 12, "md": 6})],
+                            alignment=ft.MainAxisAlignment.CENTER
+                        ),
+                        ft.Container(height=20),
+                        footer_text_widget,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    scroll=ft.ScrollMode.ADAPTIVE,
+                    expand=True,
+                    spacing=10
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.START,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+    # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - VISTA DE EDICIÓN ---
 
 
     # --- Manejo de Rutas ---
@@ -847,7 +1093,24 @@ def main(page: ft.Page):
                         ]
                     )
                 )
-        # --- Fin manejo de ruta dinámica ---
+        # --- MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Manejo de ruta de edición ---
+        elif page.route.startswith("/edit_contact/"):
+            parts = page.route.split("/")
+            try:
+                contact_id = int(parts[-1])
+                page.views.append(edit_contact_view(contact_id))
+            except ValueError:
+                page.views.append(
+                    ft.View(
+                        "/error",
+                        [
+                            ft.AppBar(title=ft.Text("Error"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE),
+                            ft.Text("ID de contacto no válido para edición.", color=ft.Colors.RED_500),
+                            ft.ElevatedButton("Volver a Contactos", on_click=lambda e: page.go("/contacts_list"))
+                        ]
+                    )
+                )
+        # --- FIN MODIFICACIÓN: BORRAR Y EDITAR CONTACTO - Manejo de ruta de edición ---
         else: # Ruta por defecto
             page.views.append(home_view())
         page.update()
