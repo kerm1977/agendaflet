@@ -90,8 +90,49 @@ def init_db():
             participacion TEXT
         )
     ''')
+    ### CAMBIO IMPORTANTE: Nueva tabla para configuraciones de la aplicación (incluye "Recordar contraseña")
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
+
+### CAMBIO IMPORTANTE: Nuevas funciones para interactuar con la tabla app_settings
+def get_setting_db(key):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def set_setting_db(key, value):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    # INSERT OR REPLACE inserta si no existe, o actualiza si la clave ya existe
+    cursor.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+def delete_setting_db(key):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM app_settings WHERE key = ?", (key,))
+    conn.commit()
+    conn.close()
+
+### CAMBIO IMPORTANTE: Nueva función para obtener el hash de la contraseña de un usuario
+def get_hashed_password_db(identifier):
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash FROM usuarios WHERE usuario = ? OR email = ?", (identifier, identifier))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+### FIN CAMBIO IMPORTANTE
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -252,7 +293,13 @@ def main(page: ft.Page):
         password_input.value = ""
         login_message_text.value = "Sesión cerrada."
         login_message_text.color = ft.Colors.BLACK54
-        page.update()
+        
+        ### CAMBIO IMPORTANTE: Eliminar de la DB al cerrar sesión
+        print("DEBUG: Deseleccionando 'Recordar contraseña' y eliminando de DB al cerrar sesión.")
+        delete_setting_db("saved_username_email") 
+        set_setting_db("remember_me_checkbox", "False") # Asegurarse de que el estado del checkbox también se guarde como False
+        remember_me_checkbox.value = False 
+        page.update() 
         page.go("/login") 
 
     footer_text_widget = ft.Container(
@@ -324,6 +371,7 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    # Definimos los TextField y Checkbox ANTES de la función login_view
     username_email_input = ft.TextField(
         label="Usuario o Email",
         hint_text="Ingresa tu usuario o correo",
@@ -337,6 +385,43 @@ def main(page: ft.Page):
     )
     remember_me_checkbox = ft.Checkbox(label="Recordar contraseña")
     login_message_text = ft.Text("", color=ft.Colors.RED_500)
+
+    ### CAMBIO IMPORTANTE: Cargar el valor guardado al inicio de la aplicación desde SQLite
+    saved_username_email_from_db = get_setting_db("saved_username_email")
+    # Se guarda el estado del checkbox como string "True" o "False"
+    remember_me_checked_from_db = get_setting_db("remember_me_checkbox") 
+    
+    print(f"DEBUG: Valor recuperado de DB al inicio: '{saved_username_email_from_db}'")
+    print(f"DEBUG: Checkbox estado recuperado de DB al inicio: '{remember_me_checked_from_db}'")
+
+    # Auto-login logic
+    if saved_username_email_from_db and remember_me_checked_from_db == "True":
+        username_email_input.value = saved_username_email_from_db
+        remember_me_checkbox.value = True 
+        print("DEBUG: username_email_input.value y remember_me_checkbox.value establecidos desde DB.")
+
+        # Attempt to auto-authenticate
+        hashed_password_for_auto_login = get_hashed_password_db(saved_username_email_from_db)
+        if hashed_password_for_auto_login:
+            success, user_name = authenticate_user_db(saved_username_email_from_db, hashed_password_for_auto_login)
+            if success:
+                global LOGGED_IN_USER
+                LOGGED_IN_USER = user_name
+                print(f"DEBUG: Auto-inicio de sesión exitoso para: {user_name}")
+                # ### CAMBIO IMPORTANTE: Establecer la ruta de la página en lugar de hacer page.go() y return
+                page.route = "/home" 
+            else:
+                print("DEBUG: Auto-inicio de sesión fallido (credenciales no válidas).")
+                # Si falla el auto-login, la ruta seguirá siendo la predeterminada (login)
+        else:
+            print("DEBUG: No se encontró hash de contraseña para auto-inicio de sesión.")
+            # Si no hay hash, la ruta seguirá siendo la predeterminada (login)
+    else:
+        # Asegurarse de que estén vacíos/desmarcados si no hay datos guardados o el checkbox no estaba marcado
+        username_email_input.value = "" 
+        remember_me_checkbox.value = False 
+        print("DEBUG: No se encontró un valor guardado o checkbox desmarcado en DB.")
+
 
     def login_user(e):
         global LOGGED_IN_USER
@@ -352,13 +437,27 @@ def main(page: ft.Page):
         hashed_password = hash_password(password)
         success, user_name = authenticate_user_db(identifier, hashed_password)
 
+        print(f"DEBUG: remember_me_checkbox.value en login_user (antes de guardar): {remember_me_checkbox.value}") 
+
         if success:
             LOGGED_IN_USER = user_name
             login_message_text.value = "Inicio de sesión exitoso!"
             login_message_text.color = ft.Colors.GREEN_500
-            username_email_input.value = ""
-            password_input.value = ""
-            page.update()
+            
+            ### CAMBIO IMPORTANTE: Guardar o eliminar el valor basado en el checkbox en SQLite
+            if remember_me_checkbox.value:
+                set_setting_db("saved_username_email", identifier)
+                set_setting_db("remember_me_checkbox", "True") # Guardar como string "True"
+                print(f"DEBUG: '{identifier}' y 'True' guardados en DB.")
+            else:
+                # Si el checkbox no está marcado, eliminamos el usuario guardado y marcamos el checkbox como False
+                delete_setting_db("saved_username_email")
+                set_setting_db("remember_me_checkbox", "False") # Guardar como string "False"
+                print("DEBUG: Valor eliminado de DB (checkbox desmarcado).")
+
+            # Limpiamos solo la contraseña, el usuario/email se mantiene si es recordado
+            password_input.value = "" 
+            page.update() 
             page.go("/home")
         else:
             login_message_text.value = "Usuario o contraseña incorrectos."
@@ -400,7 +499,7 @@ def main(page: ft.Page):
                                     alignment=ft.MainAxisAlignment.CENTER
                                 ),
                                 ft.ResponsiveRow(
-                                    [ft.Column([ft.TextButton("¿No tienes cuenta? Regístrate aquí.", on_click=lambda e: page.go("/register"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    [ft.Column([ft.TextButton("¿No tienes cuenta? Regístrate aquí.", on_click=lambda e: page.go("/register"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.MainAxisAlignment.CENTER)],
                                     alignment=ft.MainAxisAlignment.CENTER
                                 ),
                             ],
@@ -514,7 +613,7 @@ def main(page: ft.Page):
                                     alignment=ft.MainAxisAlignment.CENTER
                                 ),
                                 ft.ResponsiveRow(
-                                    [ft.Column([ft.TextButton("¿Ya tienes cuenta? Inicia Sesión.", on_click=lambda e: page.go("/login"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.CrossAxisAlignment.CENTER)],
+                                    [ft.Column([ft.TextButton("¿Ya tienes cuenta? Inicia Sesión.", on_click=lambda e: page.go("/login"))], col={"xs": 12, "md": 6}, horizontal_alignment=ft.MainAxisAlignment.CENTER)],
                                     alignment=ft.MainAxisAlignment.CENTER
                                 ),
                             ],
@@ -758,6 +857,10 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+    def close_confirm_dialog(e_dialog): 
+        confirm_dialog_global.open = False
+        page.update()
+
     def contact_detail_view(contact_id):
         contact = get_contact_by_id_db(contact_id)
 
@@ -813,10 +916,6 @@ def main(page: ft.Page):
         if contact[13]: 
             all_contact_details.append(ft.Text(f"🤝 Participación: {contact[13]}", size=14, color=ft.Colors.BLACK87))
 
-        def close_dialog_and_update(e_dialog): # Nueva función para cerrar el diálogo
-            confirm_dialog_global.open = False
-            page.update()
-
         def confirm_delete_dialog_handler(e):
             print(f"DEBUG: confirm_delete_dialog_handler llamado para ID: {contact_id}") 
             
@@ -840,7 +939,7 @@ def main(page: ft.Page):
 
             confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar a {nombre_completo_titulo}? Esta acción no se puede deshacer."
             confirm_dialog_global.actions[0].on_click = delete_confirmed 
-            confirm_dialog_global.actions[1].on_click = close_dialog_and_update # Asignar la nueva función aquí
+            confirm_dialog_global.actions[1].on_click = close_confirm_dialog
             
             confirm_dialog_global.open = True
             page.update() 
