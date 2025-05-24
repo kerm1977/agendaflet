@@ -164,6 +164,17 @@ def init_db():
                 fecha_creacion TEXT NOT NULL
             )
         ''') # Nueva tabla para normas
+
+        # Nueva tabla para documentos de La Tribu
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tribu_documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                creation_date TEXT NOT NULL
+            )
+        ''')
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
@@ -604,6 +615,81 @@ def delete_norma_db(norma_id):
             return False, "Norma no encontrada para eliminar."
     except Exception as e:
         return False, f"Error al eliminar norma: {e}"
+    finally:
+        conn.close()
+
+# --- FUNCIONES DE BASE DE DATOS PARA DOCUMENTOS DE LA TRIBU ---
+def add_tribu_document_db(title, content):
+    """
+    Añade un nuevo documento de La Tribu a la base de datos.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    creation_date = datetime.date.today().strftime('%Y-%m-%d')
+    try:
+        cursor.execute("INSERT INTO tribu_documents (title, content, creation_date) VALUES (?, ?, ?)",
+                       (title, content, creation_date))
+        conn.commit()
+        return True, "Documento de La Tribu guardado exitosamente."
+    except Exception as e:
+        return False, f"Error al guardar documento de La Tribu: {e}"
+    finally:
+        conn.close()
+
+def get_all_tribu_documents_db():
+    """
+    Obtiene todos los documentos de La Tribu de la base de datos.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, content, creation_date FROM tribu_documents ORDER BY creation_date DESC, id DESC")
+    documents = cursor.fetchall()
+    conn.close()
+    return documents
+
+def get_tribu_document_by_id_db(doc_id):
+    """
+    Obtiene un documento de La Tribu por su ID.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, content, creation_date FROM tribu_documents WHERE id = ?", (doc_id,))
+    document = cursor.fetchone()
+    conn.close()
+    return document
+
+def update_tribu_document_db(doc_id, title, content):
+    """
+    Actualiza un documento de La Tribu existente en la base de datos.
+    La fecha de creación no se actualiza, solo el contenido.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE tribu_documents SET title = ?, content = ? WHERE id = ?",
+                       (title, content, doc_id))
+        conn.commit()
+        return True, "Documento de La Tribu actualizado exitosamente."
+    except Exception as e:
+        return False, f"Error al actualizar documento de La Tribu: {e}"
+    finally:
+        conn.close()
+
+def delete_tribu_document_db(doc_id):
+    """
+    Elimina un documento de La Tribu de la base de datos por su ID.
+    """
+    conn = sqlite3.connect(DATABASE_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM tribu_documents WHERE id = ?", (doc_id,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            return True, "Documento de La Tribu eliminado exitosamente."
+        else:
+            return False, "Documento de La Tribu no encontrado para eliminar."
+    except Exception as e:
+        return False, f"Error al eliminar documento de La Tribu: {e}"
     finally:
         conn.close()
 
@@ -1120,11 +1206,62 @@ def main(page: ft.Page):
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # Vista de La Tribu (Placeholder)
+    # Controles para la vista de Documentos de La Tribu
+    tribu_documents_list_container = ft.Column(
+        controls=[],
+        expand=True,
+        spacing=10,
+        scroll=ft.ScrollMode.ADAPTIVE
+    )
+
+    def update_tribu_documents_list():
+        """
+        Actualiza la lista de documentos de La Tribu mostrada en la interfaz de usuario,
+        obteniéndolos de la base de datos.
+        """
+        documents = get_all_tribu_documents_db()
+        document_items = []
+        if not documents:
+            document_items.append(
+                ft.Text("No hay documentos de La Tribu registrados aún.", italic=True, color=ft.Colors.BLACK54)
+            )
+        else:
+            for doc in documents:
+                doc_id = doc[0]
+                title = doc[1]
+                creation_date_db = datetime.datetime.strptime(doc[3], '%Y-%m-%d').strftime('%d/%m/%y')
+
+                document_items.append(
+                    ft.Card(
+                        content=ft.Container(
+                            padding=10,
+                            content=ft.Column(
+                                [
+                                    ft.Text(f"{title}", size=16, weight=ft.FontWeight.W_500),
+                                    ft.Text(f"(Creado el {creation_date_db})", size=12, color=ft.Colors.GREY_600),
+                                    ft.Divider(height=5, color=ft.Colors.GREY_300),
+                                    ft.TextButton(
+                                        "Ver Detalles",
+                                        on_click=lambda e, did=doc_id: page.go(f"/tribu_document_detail/{did}"),
+                                        style=ft.ButtonStyle(color=ft.Colors.ORANGE_600)
+                                    )
+                                ],
+                                spacing=5
+                            ),
+                        ),
+                        margin=ft.margin.symmetric(vertical=5, horizontal=10)
+                    )
+                )
+        tribu_documents_list_container.controls = document_items
+        page.update()
+
+    # Vista de La Tribu (Ahora muestra la lista de documentos)
     def la_tribu_view():
         """
-        Vista de marcador de posición para La Tribu.
+        Vista para La Tribu, que muestra la lista de documentos.
         """
+        update_tribu_documents_list() # Actualizar la lista al entrar a la vista
+
         return ft.View(
             "/la_tribu",
             [
@@ -1137,8 +1274,8 @@ def main(page: ft.Page):
                 ),
                 ft.Column(
                     [
-                        ft.Container(expand=True),
-                        ft.Text("Contenido de La Tribu (próximamente)", size=20, color=ft.Colors.BLACK54),
+                        ft.Container(height=20),
+                        tribu_documents_list_container, # Contenedor para la lista de documentos
                         ft.Container(height=20), # Espacio antes del botón
                         ft.ResponsiveRow(
                             [
@@ -1164,23 +1301,80 @@ def main(page: ft.Page):
                             alignment=ft.MainAxisAlignment.CENTER,
                             spacing=10
                         ),
-                        ft.Container(expand=True),
+                        ft.Container(height=20),
                         footer_text_widget,
                     ],
-                    alignment=ft.MainAxisAlignment.CENTER,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             ],
             vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    # Vista de Formulario para Nuevo Dato de La Tribu (Placeholder)
+    # Controles para el formulario de Nuevo Dato de La Tribu
+    tribu_doc_title_input = ft.TextField(
+        label="Título del Documento",
+        hint_text="Ej: Nuestra Misión, Guía de Valores, etc.",
+        expand=True,
+    )
+    tribu_doc_content_input = ft.TextField(
+        label="Contenido del Documento",
+        multiline=True,
+        min_lines=5,
+        max_lines=20,
+        expand=True,
+    )
+    tribu_doc_creation_date_input = ft.TextField(
+        label="Fecha de Creación",
+        read_only=True,
+        value=datetime.date.today().strftime('%Y-%m-%d'),
+        expand=True,
+    )
+    add_tribu_doc_message_text = ft.Text("", color=ft.Colors.RED_500)
+
+    def save_tribu_document(e):
+        """
+        Guarda un nuevo documento de La Tribu en la base de datos.
+        """
+        title = tribu_doc_title_input.value.strip()
+        content = tribu_doc_content_input.value.strip()
+
+        if not title or not content:
+            add_tribu_doc_message_text.value = "Por favor, ingresa el título y el contenido del documento."
+            add_tribu_doc_message_text.color = ft.Colors.RED_500
+            page.update()
+            return
+
+        success, message = add_tribu_document_db(title, content)
+
+        page.snack_bar = ft.SnackBar(
+            ft.Text(message, color=ft.Colors.WHITE),
+            bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
+            open=True,
+            duration=3000
+        )
+        page.update()
+
+        if success:
+            tribu_doc_title_input.value = ""
+            tribu_doc_content_input.value = ""
+            add_tribu_doc_message_text.value = ""
+            page.update()
+            page.go("/la_tribu")
+
+    # Vista de Formulario para Nuevo Dato de La Tribu
     def add_tribu_data_view():
         """
-        Vista de marcador de posición para el formulario de añadir un nuevo dato a La Tribu.
+        Vista para el formulario de añadir un nuevo dato a La Tribu.
         """
+        tribu_doc_title_input.value = ""
+        tribu_doc_content_input.value = ""
+        tribu_doc_creation_date_input.value = datetime.date.today().strftime('%Y-%m-%d')
+        add_tribu_doc_message_text.value = ""
+        page.update()
+
         return ft.View(
             "/add_tribu_data",
             [
@@ -1193,17 +1387,228 @@ def main(page: ft.Page):
                 ),
                 ft.Column(
                     [
-                        ft.Container(expand=True),
-                        ft.Text("Formulario para añadir un nuevo dato de La Tribu (próximamente)", size=20, color=ft.Colors.BLACK54),
+                        ft.Container(height=20),
+                        ft.Text("Completa los detalles del nuevo documento:", size=18, weight=ft.FontWeight.BOLD),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_title_input], col={"xs": 12})]),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_content_input], col={"xs": 12})]),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_creation_date_input], col={"xs": 12})]),
+                        add_tribu_doc_message_text,
+                        ft.Container(height=20),
+                        ft.ResponsiveRow(
+                            [ft.Column([ft.ElevatedButton("Guardar Documento", on_click=save_tribu_document, expand=True)], col={"xs": 12, "md": 6})],
+                            alignment=ft.MainAxisAlignment.CENTER
+                        ),
                         ft.Container(expand=True),
                         footer_text_widget,
                     ],
-                    alignment=ft.MainAxisAlignment.CENTER,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    expand=True
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE,
+                    spacing=10
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.START,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    # Vista de Detalle de Documento de La Tribu
+    def tribu_document_detail_view(doc_id):
+        """
+        Crea la vista para mostrar los detalles de un documento de La Tribu específico.
+        """
+        document = get_tribu_document_by_id_db(doc_id)
+
+        if not document:
+            return ft.View(
+                f"/tribu_document_detail/{doc_id}",
+                [
+                    ft.AppBar(
+                        title=ft.Text("Documento No Encontrado"),
+                        center_title=True,
+                        bgcolor=ft.Colors.ORANGE_700,
+                        color=ft.Colors.WHITE,
+                        leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/la_tribu"))
+                    ),
+                    ft.Column(
+                        [
+                            ft.Container(expand=True),
+                            ft.Text("El documento solicitado no pudo ser encontrado.", size=16, color=ft.Colors.RED_500),
+                            ft.Container(expand=True),
+                            footer_text_widget,
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        expand=True
+                    )
+                ]
+            )
+
+        title = document[1]
+        content = document[2]
+        creation_date_db = datetime.datetime.strptime(document[3], '%Y-%m-%d').strftime('%d/%m/%y')
+
+        def confirm_delete_tribu_document_handler(e):
+            """
+            Manejador para confirmar la eliminación de un documento de La Tribu.
+            """
+            def delete_confirmed(e_dialog):
+                confirm_dialog_global.open = False
+                page.update()
+                success, message = delete_tribu_document_db(doc_id)
+                page.snack_bar = ft.SnackBar(
+                    ft.Text(message, color=ft.Colors.WHITE),
+                    bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
+                    open=True,
+                    duration=3000
+                )
+                page.update()
+                if success:
+                    time.sleep(0.3)
+                    page.go("/la_tribu")
+
+            confirm_dialog_global.content.value = f"¿Estás seguro de que deseas eliminar este documento: '{title}'? Esta acción no se puede deshacer."
+            confirm_dialog_global.actions[0].on_click = delete_confirmed
+            confirm_dialog_global.actions[1].on_click = close_confirm_dialog
+            confirm_dialog_global.open = True
+            page.update()
+
+        return ft.View(
+            f"/tribu_document_detail/{doc_id}",
+            [
+                ft.AppBar(
+                    title=ft.Text(f"Detalle: {title}"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/la_tribu")),
+                    actions=[
+                        ft.IconButton(
+                            icon=ft.Icons.EDIT,
+                            icon_color=ft.Colors.WHITE,
+                            tooltip="Editar Documento",
+                            on_click=lambda e: page.go(f"/edit_tribu_document/{doc_id}")
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE,
+                            icon_color=ft.Colors.RED_200,
+                            tooltip="Eliminar Documento",
+                            on_click=confirm_delete_tribu_document_handler
+                        ),
+                    ]
+                ),
+                ft.Column(
+                    [
+                        ft.Container(expand=True),
+                        ft.Card(
+                            content=ft.Container(
+                                padding=20,
+                                content=ft.Column(
+                                    [
+                                        ft.Text(title, size=22, weight=ft.FontWeight.BOLD), # Título como encabezado
+                                        ft.Divider(height=10, color=ft.Colors.ORANGE_200),
+                                        ft.Text(content, size=16, color=ft.Colors.BLACK87), # Contenido directamente
+                                        ft.Text(f"(Creado el {creation_date_db})", size=14, color=ft.Colors.GREY_600),
+                                    ],
+                                    spacing=8
+                                )
+                            ),
+                            elevation=4,
+                            margin=ft.margin.all(20),
+                        ),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE
                 )
             ],
             vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    # Vista de Edición de Documento de La Tribu
+    def edit_tribu_document_view(doc_id):
+        """
+        Crea la vista para editar un documento de La Tribu existente.
+        """
+        document = get_tribu_document_by_id_db(doc_id)
+
+        if not document:
+            return ft.View(
+                f"/edit_tribu_document/{doc_id}",
+                [
+                    ft.AppBar(title=ft.Text("Documento No Encontrado"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE,
+                              leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/la_tribu"))),
+                    ft.Text("ID de documento no válido para edición.", color=ft.Colors.RED_500)
+                ]
+            )
+
+        tribu_doc_title_input.value = document[1]
+        tribu_doc_content_input.value = document[2]
+        tribu_doc_creation_date_input.value = document[3] # La fecha no se edita
+        add_tribu_doc_message_text.value = "" # Reutilizamos el control de mensaje
+        page.update()
+
+        def update_existing_tribu_document(e):
+            """
+            Actualiza un documento de La Tribu existente en la base de datos.
+            """
+            updated_title = tribu_doc_title_input.value.strip()
+            updated_content = tribu_doc_content_input.value.strip()
+
+            if not updated_title or not updated_content:
+                add_tribu_doc_message_text.value = "Por favor, ingresa el título y el contenido del documento."
+                add_tribu_doc_message_text.color = ft.Colors.RED_500
+                page.update()
+                return
+
+            success, message = update_tribu_document_db(doc_id, updated_title, updated_content)
+
+            page.snack_bar = ft.SnackBar(
+                ft.Text(message, color=ft.Colors.WHITE),
+                bgcolor=ft.Colors.GREEN_600 if success else ft.Colors.RED_600,
+                open=True,
+                duration=3000
+            )
+            page.update()
+
+            if success:
+                page.go(f"/tribu_document_detail/{doc_id}")
+
+        return ft.View(
+            f"/edit_tribu_document/{doc_id}",
+            [
+                ft.AppBar(
+                    title=ft.Text(f"Editar Documento: {document[1][:20]}..."),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go(f"/tribu_document_detail/{doc_id}"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(height=20),
+                        ft.Text("Modificar Contenido del Documento:", size=18, weight=ft.FontWeight.BOLD),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_title_input], col={"xs": 12})]),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_content_input], col={"xs": 12})]),
+                        ft.ResponsiveRow([ft.Column([tribu_doc_creation_date_input], col={"xs": 12})]), # Mostrar fecha, pero no editable
+                        add_tribu_doc_message_text,
+                        ft.Container(height=20),
+                        ft.ResponsiveRow(
+                            [ft.Column([ft.ElevatedButton("Guardar Cambios", on_click=update_existing_tribu_document, expand=True)], col={"xs": 12, "md": 6})],
+                            alignment=ft.MainAxisAlignment.CENTER
+                        ),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True,
+                    scroll=ft.ScrollMode.ADAPTIVE,
+                    spacing=10
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.START,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
@@ -3202,10 +3607,42 @@ def main(page: ft.Page):
                 )
         elif page.route == "/cotizacion_form":
             page.views.append(cotizacion_form_view())
-        elif page.route == "/la_tribu": # Nueva ruta para 'La Tribu'
+        elif page.route == "/la_tribu": # Nueva ruta para 'La Tribu' (ahora con lista)
             page.views.append(la_tribu_view())
         elif page.route == "/add_tribu_data": # Nueva ruta para el formulario de nuevo dato de La Tribu
             page.views.append(add_tribu_data_view())
+        elif page.route.startswith("/tribu_document_detail/"): # Ruta para detalle de documento de La Tribu
+            parts = page.route.split("/")
+            try:
+                doc_id = int(parts[-1])
+                page.views.append(tribu_document_detail_view(doc_id))
+            except ValueError:
+                page.views.append(
+                    ft.View(
+                        "/error",
+                        [
+                            ft.AppBar(title=ft.Text("Error"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE),
+                            ft.Text("ID de documento de La Tribu no válido.", color=ft.Colors.RED_500),
+                            ft.ElevatedButton("Volver a La Tribu", on_click=lambda e: page.go("/la_tribu"))
+                        ]
+                    )
+                )
+        elif page.route.startswith("/edit_tribu_document/"): # Ruta para edición de documento de La Tribu
+            parts = page.route.split("/")
+            try:
+                doc_id = int(parts[-1])
+                page.views.append(edit_tribu_document_view(doc_id))
+            except ValueError:
+                page.views.append(
+                    ft.View(
+                        "/error",
+                        [
+                            ft.AppBar(title=ft.Text("Error"), bgcolor=ft.Colors.ORANGE_700, color=ft.Colors.WHITE),
+                            ft.Text("ID de documento de La Tribu no válido para edición.", color=ft.Colors.RED_500),
+                            ft.ElevatedButton("Volver a La Tribu", on_click=lambda e: page.go("/la_tribu"))
+                        ]
+                    )
+                )
         else:
             page.views.append(home_view())
         page.update()
