@@ -996,6 +996,25 @@ def main(page: ft.Page):
                                 on_click=lambda e: page.go("/normas_de_la_tribu") # Nueva ruta
                             )
                         ),
+                        ft.Divider(height=10, color=ft.Colors.TRANSPARENT), # Divisor para el nuevo botón
+
+                        ft.Card( # Nuevo botón "La Tribu"
+                            elevation=2,
+                            shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                            content=ft.Container(
+                                padding=ft.padding.symmetric(vertical=15, horizontal=15),
+                                content=ft.Row(
+                                    [
+                                        ft.Text("La Tribu", size=16, weight=ft.FontWeight.W_500, expand=True),
+                                        ft.Icon(name=ft.Icons.GROUP, color=ft.Colors.GREY_500), # Icono para 'La Tribu'
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER
+                                ),
+                                on_click=lambda e: page.go("/la_tribu") # Nueva ruta para 'La Tribu'
+                            )
+                        ),
+
 
                         ft.Container(expand=True),
                         footer_text_widget,
@@ -1100,6 +1119,94 @@ def main(page: ft.Page):
             vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
+
+    # Vista de La Tribu (Placeholder)
+    def la_tribu_view():
+        """
+        Vista de marcador de posición para La Tribu.
+        """
+        return ft.View(
+            "/la_tribu",
+            [
+                ft.AppBar(
+                    title=ft.Text("La Tribu"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/home"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(expand=True),
+                        ft.Text("Contenido de La Tribu (próximamente)", size=20, color=ft.Colors.BLACK54),
+                        ft.Container(height=20), # Espacio antes del botón
+                        ft.ResponsiveRow(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.ElevatedButton(
+                                            "Crear un nuevo dato", # Texto del nuevo botón
+                                            icon=ft.Icons.ADD, # Icono para añadir
+                                            on_click=lambda e: page.go("/add_tribu_data"), # Nueva ruta
+                                            bgcolor=ft.Colors.ORANGE_700,
+                                            color=ft.Colors.WHITE,
+                                            expand=True,
+                                            style=ft.ButtonStyle(
+                                                shape=ft.RoundedRectangleBorder(radius=ft.border_radius.all(10)),
+                                                padding=ft.padding.symmetric(vertical=15, horizontal=25)
+                                            )
+                                        )
+                                    ],
+                                    col={"xs": 12},
+                                    alignment=ft.CrossAxisAlignment.CENTER
+                                )
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=10
+                        ),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    # Vista de Formulario para Nuevo Dato de La Tribu (Placeholder)
+    def add_tribu_data_view():
+        """
+        Vista de marcador de posición para el formulario de añadir un nuevo dato a La Tribu.
+        """
+        return ft.View(
+            "/add_tribu_data",
+            [
+                ft.AppBar(
+                    title=ft.Text("Crear Nuevo Dato de La Tribu"),
+                    center_title=True,
+                    bgcolor=ft.Colors.ORANGE_700,
+                    color=ft.Colors.WHITE,
+                    leading=ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/la_tribu"))
+                ),
+                ft.Column(
+                    [
+                        ft.Container(expand=True),
+                        ft.Text("Formulario para añadir un nuevo dato de La Tribu (próximamente)", size=20, color=ft.Colors.BLACK54),
+                        ft.Container(expand=True),
+                        footer_text_widget,
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    expand=True
+                )
+            ],
+            vertical_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
 
     # Controles para la vista de Normas
     normas_list_container = ft.Column(
@@ -3095,6 +3202,10 @@ def main(page: ft.Page):
                 )
         elif page.route == "/cotizacion_form":
             page.views.append(cotizacion_form_view())
+        elif page.route == "/la_tribu": # Nueva ruta para 'La Tribu'
+            page.views.append(la_tribu_view())
+        elif page.route == "/add_tribu_data": # Nueva ruta para el formulario de nuevo dato de La Tribu
+            page.views.append(add_tribu_data_view())
         else:
             page.views.append(home_view())
         page.update()
