@@ -2486,15 +2486,15 @@ def main(page: ft.Page):
             data = [
                 ["Campo", "Valor"],
                 ["Número de Cotización:", quotation_data[1]],
-                ["Quien hace cotización:", quotation_data[2]],
-                ["Fecha automática:", quotation_data[3]],
-                ["Dirigido a:", quotation_data[4]],
+                ["Coordinador:", quotation_data[2]], # Cambiado
+                ["Fecha:", quotation_data[3]], # Cambiado
+                ["Interesad@:", quotation_data[4]], # Cambiado
                 ["Teléfono del Cliente:", quotation_data[12] if len(quotation_data) > 12 and quotation_data[12] else "N/A"],
                 ["Actividad:", quotation_data[5]],
-                ["Nombre del Item:", quotation_data[6]],
-                ["Fecha de Actividad:", quotation_data[7]],
+                ["Tipo de Actividad o Servicio:", quotation_data[6]], # Cambiado
+                ["Fecha de Actividad o Entrega:", quotation_data[7]], # Cambiado
                 ["Cantidad:", str(quotation_data[8])],
-                ["Costo:", f"₡{quotation_data[9]:.2f}"],
+                ["Costo por Persona o Unidad:", f"₡{quotation_data[9]:.2f}"], # Cambiado
                 ["Sinpe:", quotation_data[10]],
                 ["Nota:", quotation_data[11]],
             ]
@@ -2504,9 +2504,9 @@ def main(page: ft.Page):
                 cantidad = float(quotation_data[8])
                 precio = float(quotation_data[9])
                 total_calculado = cantidad * precio
-                data.append(["Total:", f"₡{total_calculado:.2f}"])
+                data.append(["Total General:", f"₡{total_calculado:.2f}"]) # Cambiado
             except (ValueError, TypeError):
-                data.append(["Total:", "N/A"])
+                data.append(["Total General:", "N/A"]) # Cambiado
 
             table = Table(data, colWidths=[150, 300])
             table.setStyle(TableStyle([
@@ -2581,16 +2581,16 @@ def main(page: ft.Page):
 
         details = [
             ft.Text(f"Número de Cotización: {cotizacion[1]}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_800),
-            ft.Text(f"Quien hace: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Fecha automática: {cotizacion[3]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Dirigido a: {cotizacion[4]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Coordinador: {cotizacion[2]}", size=14, color=ft.Colors.BLACK87), # Cambiado
+            ft.Text(f"Fecha: {cotizacion[3]}", size=14, color=ft.Colors.BLACK87), # Cambiado
+            ft.Text(f"Interesad@: {cotizacion[4]}", size=14, color=ft.Colors.BLACK87), # Cambiado
             ft.Text(f"Teléfono del Cliente: {telefono_cliente}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Actividad: {cotizacion[5]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Nombre del Item: {cotizacion[6]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Fecha de Actividad: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87),
+            ft.Text(f"Tipo de Actividad o Servicio: {cotizacion[6]}", size=14, color=ft.Colors.BLACK87), # Cambiado
+            ft.Text(f"Fecha de Actividad o Entrega: {cotizacion[7]}", size=14, color=ft.Colors.BLACK87), # Cambiado
             ft.Text(f"Cantidad: {cotizacion[8]}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Costo: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87),
-            ft.Text(f"Total: {total_display}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700),
+            ft.Text(f"Costo por Persona o Unidad: ₡{cotizacion[9]:.2f}", size=14, color=ft.Colors.BLACK87), # Cambiado
+            ft.Text(f"Total General: {total_display}", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700), # Cambiado
             ft.Text(f"Sinpe: {cotizacion[10]}", size=14, color=ft.Colors.BLACK87),
             ft.Text(f"Nota: {cotizacion[11]}", size=14, color=ft.Colors.BLACK87),
         ]
@@ -2698,7 +2698,6 @@ def main(page: ft.Page):
                 )
             page.update()
 
-
         def confirm_delete_quotation_handler(e):
             """
             Manejador para confirmar la eliminación de una cotización.
@@ -2793,7 +2792,7 @@ def main(page: ft.Page):
                                             ],
                                             alignment=ft.MainAxisAlignment.CENTER,
                                             spacing=10
-                                        )
+                                        ),
                                     ],
                                     spacing=8
                                 )
